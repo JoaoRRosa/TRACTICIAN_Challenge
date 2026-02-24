@@ -110,9 +110,9 @@ class Model:
         f_low = max(f_low, 1)
         f_high = min(f_high, nyq - 1)
         if f_low >= f_high:
-            return np.zeros_like(signal)
+            return np.zeros_like(wave.signal)
         sos = butter(order, [f_low/nyq, f_high/nyq], btype='bandpass', output='sos')
-        filtered = sosfiltfilt(sos, signal)
+        filtered = sosfiltfilt(sos, wave.signal)
         trim = int(0.05 * len(filtered))
         if trim > 0:
             filtered = filtered[trim:-trim]
