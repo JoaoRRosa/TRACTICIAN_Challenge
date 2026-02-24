@@ -1,0 +1,7 @@
+model:
+  type: DBSCAN
+  params:
+    percentile_amplitudes_threshold: 80
+    dbscan_eps: 50
+    dbscan_min_samples: 30
+    percentage_overall_RMS: 85
