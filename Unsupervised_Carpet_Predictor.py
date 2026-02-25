@@ -8,81 +8,18 @@ import yaml
 import matplotlib.pyplot as plt
 from scipy.signal import butter, sosfiltfilt
 from scipy.stats import kurtosis
-from sklearn.cluster import DBSCAN 
+from sklearn.cluster import DBSCAN
+from Wave_utils import Wave,Wave_filter,Region,CarpetRegion 
 
-class CarpetRegion(BaseModel): 
-    start_hz: float = Field(gt = 1000, description="Start frequency in Hz") 
-    end_hz: float = Field(..., description="End frequency in Hz") 
 
-class Wave(BaseModel): 
-    time: List[float] = Field(min_length=1, description="Time points of the wave") 
-    signal: List[float] = Field(min_length=1, description="Signal values")
-
-    @model_validator(mode="after")
-    def check_time_and_signal(self):
-        """Checks if time and signal have the same length, if there are NANs or Infs, and if time data is growing"""
-
-        # Checks if time and signal have the same length
-        if len(self.time) != len(self.signal):
-            raise ValueError("Time and signal data do not have the same lenghts!")
-        
-        time_arr = np.array(self.time, dtype=float)
-        signal_arr = np.array(self.signal, dtype=float)
-
-        # Checks if there is NAN or Inf
-        if not np.all(np.isfinite(time_arr)):
-            raise ValueError("Time array contains NaN or infinite values")
-        
-        if not np.all(np.isfinite(signal_arr)):
-            raise ValueError("Signal array contains NaN or infinite values")
-
-        # Checks if time is strictly growing
-        if np.any(np.diff(time_arr) <= 0):
-            raise ValueError("Time values must be strictly increasing")
-
-        return self
-
-    @computed_field(description = "Length of the signal (should be equal to length of time)")
-    @property
-    def wave_length(self) -> int:
-        """Length of the signal (should be equal to length of time)"""
-        return len(self.signal)
-
-    @computed_field(description ="Data collection frequency calculated from the average time delta between points")
-    @property
-    def wave_frequency(self) -> float:
-        """Data collection frequency calculated from the average time delta between points"""
-        dt = np.mean(np.diff(self.time))
-        return 1.0 / dt
     
-    @computed_field(description ="Nyquist frequency of the wave")
-    @property
-    def nyquist_frequency(self) -> float:
-        """Nyquist frequency of the wave calculated from the average time delta between points"""
-        return self.wave_frequency / 2.0
-
-    @computed_field(description="Frequencies calculated from the fast fourier transform")
-    @property
-    def frequencies(self) -> List[float]:
-        """Frequencies calculated from the fast fourier transform"""
-        dt = np.mean(np.diff(self.time))
-        return list(np.fft.rfftfreq(self.wave_length, dt))
-
-    @computed_field(description="Amplitudes calculated from the fast fourier transform")
-    @property
-    def amplitudes(self) -> List[float]:
-        """Amplitudes calculated from the fast fourier transform"""
-        dt = np.mean(np.diff(self.time))
-        fft_vals = np.fft.rfft(self.signal)
-        return list(2.0 / self.wave_length * np.abs(fft_vals))
-
  
 class Model: 
     def __init__(self, **params): 
         # Store hyperparameters if needed 
         self.params = params
  
-    def predict(self, wave: Wave, plot_steps : bool = True, output_file : str = '') -> List[CarpetRegion]: 
+    def predict(self, wave: Wave, output_file_fig : str = '', output_file_features = '') -> List[CarpetRegion]: 
         """ 
         Predict carpet regions from a given wave. 
         This should be implemented with actual logic. 
@@ -91,10 +28,14 @@ class Model:
         carpet_regions = self.detect_DBSCAN_clusters(wave_filtered)
         final_carpet_regions,rms_values_per_region = self.apply_RMS_filter(wave,carpet_regions)
 
-        if plot_steps:
-            self.plot_unsupervised_model_steps(output_file,wave,carpet_regions,rms_values_per_region,final_carpet_regions)
-        # Example placeholder 
-        #raise NotImplementedError("Predict method not implemented.")
+        if output_file_fig != '':
+            self.plot_unsupervised_model_steps(output_file_fig,wave,carpet_regions,rms_values_per_region,final_carpet_regions)
+        
+        if output_file_fig != '':
+            complementary_regions = self.get_complementary_regions(wave,carpet_regions)
+            regions = carpet_regions + complementary_regions
+            self.extract_features(output_file_features,wave,regions,final_carpet_regions)
+         
         return final_carpet_regions
     
     def apply_highpass_filter(self, wave: Wave, cutoff : float, order: int = 4) -> Wave:
@@ -176,30 +117,35 @@ class Model:
         """Calculates the root mean square of the wave signal, this value simbolyzes the energy of the signal"""
         return np.sqrt(np.mean(np.array(wave.signal)**2))
     
-    def extract_features(self, wave: Wave, regions : List[CarpetRegion]) -> List[Dict]:
+    def extract_features(self,save_path : str, wave: Wave, regions : List[Region],carpet_regions: List[CarpetRegion]) -> List[Dict]:
         """Exctracts features from the carpet regions to train a supervised model"""
         amplitudes = wave.amplitudes
         freqs = wave.frequencies
+        # Sort subregions by start value
+        regions = sorted(regions, key=lambda region: region.start_hz)
 
         feature_rows = []
         for region in regions:
             f_low = region.start_hz
             f_high = region.end_hz
-            mask = (freqs >= f_low) & (freqs <= f_high)
-            band_amp = amplitudes[mask]
+            #mask = (freqs >= f_low) & (freqs <= f_high)
+            #band_amp = amplitudes[mask]
+            wave_filtered = self.apply_bandpass_filter(wave,f_low,f_high)
+            band_amp = np.array(wave.amplitudes)
             if len(band_amp) == 0:
                 continue
             bandwidth = f_high - f_low
             spectral_energy = np.sum(band_amp**2)
             mean_amp = np.mean(band_amp)
             max_amp = np.max(band_amp)
-
-            wave_filtered = self.apply_bandpass_filter(wave, f_low, f_high)
-            rms = np.sqrt(np.mean(wave_filtered**2))
-            std_val = np.std(wave_filtered)
-            kurt_val = kurtosis(wave_filtered, fisher=False)
+            signal = np.array(wave_filtered.signal)
+            rms = np.sqrt(np.mean(signal**2))
+            std_val = np.std(signal)
+            kurt_val = kurtosis(signal, fisher=False)
+            label = 1 if region in carpet_regions else 0
             
             feature_rows.append({
+                "region":f"{round(f_low,1)}-{round(f_high,1)}",
                 "f_low": f_low,
                 "f_high": f_high,
                 "bandwidth": bandwidth,
@@ -208,9 +154,104 @@ class Model:
                 "max_amplitude": max_amp,
                 "rms": rms,
                 "std": std_val,
-                "kurtosis": kurt_val
-            })
+                "kurtosis": kurt_val,
+                "label": label})
+
+        final_df = pd.DataFrame(feature_rows)
+        file_name = os.path.splitext(save_path)[0]
+        figure_name = os.path.join(f'{file_name}.png')
+        final_df.to_csv(save_path, index=False)
+        print("\nDataset saved:", save_path)
+
+        self.plot_features_per_region(figure_name,final_df,"region","label")
         return feature_rows
+    
+    def plot_features_per_region(self,save_path,df,region_col,label_col,positive_color="red",
+                               negative_color="blue",figsize_per_plot=(10, 4)):
+        """
+        Creates one subplot per feature.
+        Bars are colored based on label (0/1).
+        Saves the resulting figure.
+        """
+
+        # Identify feature columns
+        feature_cols = [col for col in df.columns 
+                        if col not in [region_col, label_col]]
+
+        n_features = len(feature_cols)
+
+        fig, axes = plt.subplots(
+            nrows=n_features,
+            ncols=1,
+            figsize=(figsize_per_plot[0], figsize_per_plot[1] * n_features),
+            sharex=True
+        )
+
+        # If only one feature, axes is not iterable
+        if n_features == 1:
+            axes = [axes]
+
+        colors = df[label_col].map({
+            1: positive_color,
+            0: negative_color
+        })
+
+        for ax, feature in zip(axes, feature_cols):
+            ax.bar(
+                df[region_col],
+                df[feature],
+                color=colors
+            )
+            ax.set_title(feature)
+            ax.set_ylabel("Value")
+            ax.grid(axis="y", linestyle="--", alpha=0.4)
+
+        axes[-1].set_xlabel("Region")
+        plt.xticks(rotation=45)
+
+        plt.tight_layout()
+
+        # Create directory if needed
+        os.makedirs(os.path.dirname(save_path), exist_ok=True) if os.path.dirname(save_path) else None
+
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+
+        print(f"Figure saved to: {save_path}")
+        pass
+   
+    def get_complementary_regions(self,wave : Wave ,regions : List[CarpetRegion]) -> List[Region]:
+        big_region = Region(start_hz=wave.min_frequency,end_hz=wave.max_frequency)
+        #start, end = wave.min_frequency,wave.max_frequency
+        
+        if big_region in regions:
+            return [big_region]
+        
+        # Sort subregions by start value
+        regions = sorted(regions, key=lambda region: region.start_hz)
+        
+        complementary_regions = []
+        current = big_region.start_hz
+        
+        for region in regions:
+            s, e = region.start_hz,region.end_hz
+            # Ignore subregions outside big_region
+            if e <= big_region.start_hz or s >= big_region.end_hz:
+                continue
+            
+            # Clip to big_region bounds
+            s = max(s, big_region.start_hz)
+            e = min(e, big_region.end_hz)
+            
+            if s > current:
+                complementary_regions.append(Region(start_hz = current, end_hz = s))
+            
+            current = max(current, e)
+        
+        if current < big_region.end_hz:
+            complementary_regions.append(Region(start_hz = current, end_hz = big_region.end_hz))
+        
+        return complementary_regions
 
     def plot_unsupervised_model_steps(self,save_path : str,wave: Wave, regions: List[CarpetRegion],
                                       rms_values_per_region: List[float], final_regions : List[CarpetRegion]):
@@ -259,8 +300,10 @@ if __name__ == "__main__":
 
     INPUT_FOLDER = 'part_1'
     OUTPUT_FOLDER = 'outputs/pydantic_model'
+    FEATURES_FOLDER = 'outputs/pydantic_model/features'
 
     os.makedirs(OUTPUT_FOLDER,exist_ok=True)
+    os.makedirs(FEATURES_FOLDER,exist_ok=True)
     csv_files = glob.glob(os.path.join(INPUT_FOLDER, "*.csv"))
 
     # Load YAML from file
@@ -280,5 +323,7 @@ if __name__ == "__main__":
         signal = (signal - np.mean(signal))*9.81
         
         wave = Wave(time = time,signal = signal)
-        save_path = os.path.join(OUTPUT_FOLDER,f"{os.path.splitext(os.path.basename(file))[0]}_pipeline.png")
-        carpet_region_list = model.predict(wave,output_file=save_path)
+        save_path_pipeline = os.path.join(OUTPUT_FOLDER,f"{os.path.splitext(os.path.basename(file))[0]}_pipeline.png")
+        save_path_features = os.path.join(FEATURES_FOLDER,f"{os.path.splitext(os.path.basename(file))[0]}_features.csv")
+
+        carpet_region_list = model.predict(wave,output_file_fig=save_path_pipeline,output_file_features=save_path_features)
