@@ -117,6 +117,19 @@ class Model:
         """Calculates the root mean square of the wave signal, this value simbolyzes the energy of the signal"""
         return np.sqrt(np.mean(np.array(wave.signal)**2))
     
+    def carpet_severity(self,wave:Wave,region : CarpetRegion) -> float:
+        f_low = region.start_hz
+        f_high = region.end_hz
+        filtered_wave = self.apply_bandpass_filter(wave, f_low, f_high)
+
+        overall_rms = self.root_mean_squared(wave)
+        region_rms = self.root_mean_squared(filtered_wave)
+
+        region_kurtosis = kurtosis(signal, fisher=False)
+        score = (region_rms/overall_rms)#**np.abs(region_kurtosis - 3)
+        return score
+
+        
     def extract_features(self,save_path : str, wave: Wave, regions : List[Region],carpet_regions: List[CarpetRegion]) -> List[Dict]:
         """Exctracts features from the carpet regions to train a supervised model"""
         amplitudes = wave.amplitudes
@@ -270,8 +283,12 @@ class Model:
         axs[1].plot(freqs, amplitudes)
         for region in regions:
             axs[1].axvspan(region.start_hz, region.end_hz, color='orange', alpha=0.3)
+            x = (region.start_hz +  region.end_hz)/2
+            y = max(amplitudes)
+            score = f'score:{round(self.carpet_severity(wave,region),2)}'
+            axs[1].annotate(score,xy = (x,y),xytext=(x, y))
         axs[1].set_title("2) DBSCAN Clusters")
-        axs[1].legend()
+        #axs[1].legend()
 
         # 3 RMS filter plot
         labels_plot = [f"{round(region.start_hz,0)}-{round(region.end_hz,0)}" for region in regions]
@@ -291,7 +308,7 @@ class Model:
         for region in final_regions:
             axs[3].axvspan(region.start_hz, region.end_hz, color='red', alpha=0.4)
         axs[3].set_title("4) Final Selected Regions")
-        axs[3].legend()
+        #axs[3].legend()
 
         plt.tight_layout(rect=[0,0,1,0.97])
         #save_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file))[0]}_pipeline.png")

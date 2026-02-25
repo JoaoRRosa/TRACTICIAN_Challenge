@@ -72,7 +72,7 @@ class Wave(BaseModel):
         """Amplitudes calculated from the fast fourier transform"""
         dt = np.mean(np.diff(self.time))
         fft_vals = np.fft.rfft(self.signal)
-        return list(2.0 / self.wave_length * np.abs(fft_vals))
+        return list((2.0 / self.wave_length) * np.abs(fft_vals))
     
     @computed_field(description="Maximum amplitude from the fast fourier transform")
     @property
