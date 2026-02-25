@@ -271,6 +271,7 @@ class Model:
         for region in regions:
             axs[1].axvspan(region.start_hz, region.end_hz, color='orange', alpha=0.3)
         axs[1].set_title("2) DBSCAN Clusters")
+        axs[1].legend()
 
         # 3 RMS filter plot
         labels_plot = [f"{round(region.start_hz,0)}-{round(region.end_hz,0)}" for region in regions]
@@ -278,6 +279,8 @@ class Model:
         threshold = self.params['percentage_overall_RMS'] * full_signal_rms/(100 * len(regions))
         axs[2].bar(labels_plot + ["Full signal"],rms_values_per_region + [full_signal_rms])
         axs[2].axhline(y=threshold, color='red', linestyle='--', linewidth=2, label='Threshold')
+        axs[2].set_title("3) RMS filter selection")
+        axs[2].legend()
         # 3 Global RMS histogram
         #axs[2].hist(all_rms, bins=40, color='gray')
         #axs[2].axvline(global_threshold, color='red', linewidth=2)
@@ -288,6 +291,7 @@ class Model:
         for region in final_regions:
             axs[3].axvspan(region.start_hz, region.end_hz, color='red', alpha=0.4)
         axs[3].set_title("4) Final Selected Regions")
+        axs[3].legend()
 
         plt.tight_layout(rect=[0,0,1,0.97])
         #save_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file))[0]}_pipeline.png")
@@ -320,7 +324,7 @@ if __name__ == "__main__":
         df = pd.read_csv(file)
         time = df.iloc[:, 0].to_numpy().copy()
         signal = df.iloc[:, 1].to_numpy().copy()
-        signal = (signal - np.mean(signal))*9.81
+        signal = (signal - np.mean(signal))#*9.81
         
         wave = Wave(time = time,signal = signal)
         save_path_pipeline = os.path.join(OUTPUT_FOLDER,f"{os.path.splitext(os.path.basename(file))[0]}_pipeline.png")
