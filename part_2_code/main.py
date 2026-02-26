@@ -19,9 +19,25 @@ if __name__ == "__main__":
     # Build dataset from raw CSV
     # ---------------------------------
     if args.build_dataset:
-        X_data, y_data = build_dataset_from_csv(config)
-    else:
-        X_data = np.load(f"{args.data_path}/X_data.npy")
-        y_data = np.load(f"{args.data_path}/y_data.npy")
+        #X_data, y_data = build_dataset_from_csv(config)
+        X_combined, X_ML, y_data = build_dataset_from_csv(
+            folder_path=config["dataset"]["raw_folder"],
+            metadata_file=config["dataset"]["metadata_file"],
+            save_dir=config["dataset"]["output_folder"],
+            nperseg=config["dataset"]["nperseg"],
+            noverlap=config["dataset"]["noverlap"]
+        )
 
-    results = run_pipeline(X_data, y_data, config)
+    else:
+        # Load previously saved datasets
+        data = np.load(f"{args.data_path}/X_y_dataset.npz")
+        X_combined = data["X_combined"]
+        X_ML = data["X_ML"]
+        y_data = data["y"]
+
+    # -----------------------------
+    # Run the pipeline
+    # -----------------------------
+    results = run_pipeline(X_combined, X_ML, y_data, config)
+
+    print("Pipeline finished. Results saved in:", config["output"]["folder"])

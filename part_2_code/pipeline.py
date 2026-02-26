@@ -1,12 +1,12 @@
-import matplotlib.pyplot as plt
 import os
-import json
 import numpy as np
-from sklearn.metrics import (
-    roc_curve, auc,
-    precision_recall_curve,
-    average_precision_score
-)
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve, auc, precision_recall_curve,average_precision_score
+from models import build_1d_cnn_autoencoder, build_lstm_autoencoder
+import json
+
 
 from utils import (
     prepare_2d_input,
@@ -15,11 +15,6 @@ from utils import (
     reconstruction_error
 )
 
-from models import (
-    build_2d_cnn,
-    build_1d_cnn,
-    build_lstm_ae
-)
 
 
 
@@ -101,8 +96,8 @@ def plot_results(results, y_data, output_folder):
     # 1️⃣ Plot individual reconstruction error histograms per model
     # -------------------------
     for name, r in results.items():
-        err_healthy = r["errors"][y_data == 1]
-        err_loose   = r["errors"][y_data == 0]
+        err_healthy = r["errors"][y_data == 0]
+        err_loose   = r["errors"][y_data == 1]
         threshold   = r["threshold"]
 
         plt.figure(figsize=(10,6))
@@ -150,48 +145,118 @@ def plot_results(results, y_data, output_folder):
 
     print(f"All plots saved in {output_folder}")
 
-def run_pipeline(X_data, y_data, config):
 
+# -----------------------------
+# Pipeline function
+# -----------------------------
+def run_pipeline(X_autoenc, X_ML, y, config):
+    output_folder = config["output"]["folder"]
+    os.makedirs(output_folder, exist_ok=True)
     results = {}
 
-    X_2d = prepare_2d_input(X_data)
-    X_seq = prepare_sequence_input(X_data)
+    healthy_idx = y==0
 
-    X_healthy_2d = X_2d[y_data == 1]
-    X_healthy_seq = X_seq[y_data == 1]
+    # Normalize per feature across dataset
+    mean_ae = X_autoenc.mean(axis=(0,1), keepdims=True)
+    std_ae  = X_autoenc.std(axis=(0,1), keepdims=True) + 1e-8
+    X_autoenc = (X_autoenc - mean_ae) / std_ae
 
-    # 2D
-    model_2d = build_2d_cnn(
-        X_2d.shape[1:], config["cnn2d"]["filters"],
-        config["training"]["optimizer"]
+    # ---------------------------
+    # 1D CNN Autoencoder
+    # ---------------------------
+    model_1d = build_1d_cnn_autoencoder(
+        X_autoenc.shape[1:], filters=config["cnn1d"]["filters"],
+        optimizer=config["training"]["optimizer"]
     )
+    model_1d.fit(X_autoenc[healthy_idx], X_autoenc[healthy_idx],
+                 epochs=config["training"]["epochs"],
+                 batch_size=config["training"]["batch_size"],
+                 verbose=1)
     
-    results["2D CNN"] = train_and_evaluate(
-        model_2d, X_healthy_2d, X_2d, y_data, config
-    )
+    X_pred = model_1d.predict(X_autoenc)
+    errors = np.mean((X_pred - X_autoenc)**2, axis=(1,2))
+    threshold = np.percentile(errors[healthy_idx], 95)
+    fpr, tpr, _ = roc_curve(y, errors)
+    precision, recall, _ = precision_recall_curve(y, errors)
+    pr_auc = auc(recall, precision)
+    roc_auc = auc(fpr, tpr)
 
-    # 1D
-    model_1d = build_1d_cnn(
-        X_seq.shape[1:], config["cnn1d"]["filters"],
-        config["training"]["optimizer"]
-    )
-    results["1D CNN"] = train_and_evaluate(
-        model_1d, X_healthy_seq, X_seq, y_data, config
-    )
+    results["1D CNN"] = {"errors": errors, "threshold": threshold, 
+                         "fpr": fpr, "tpr": tpr, "precision": precision, "recall": recall,
+                         "pr_auc": pr_auc, "roc_auc": roc_auc,
+                         "model": model_1d}
 
-    # LSTM
-    model_lstm = build_lstm_ae(
-        X_seq.shape[1:], config["lstm"]["latent_dim"],
-        config["training"]["optimizer"]
+    # ---------------------------
+    # LSTM Autoencoder
+    # ---------------------------
+    model_lstm = build_lstm_autoencoder(
+        X_autoenc.shape[1:], latent_dim=config["lstm"]["latent_dim"],
+        optimizer=config["training"]["optimizer"]
     )
-    results["LSTM"] = train_and_evaluate(
-        model_lstm, X_healthy_seq, X_seq, y_data, config
-    )
+    #model_lstm.fit(X_autoenc[healthy_idx], X_autoenc[healthy_idx],
+                   #epochs=config["training"]["epochs"],
+                   #batch_size=config["training"]["batch_size"],
+                   #verbose=1)
+    #X_pred = model_lstm.predict(X_autoenc)
+    #errors = np.mean((X_pred - X_autoenc)**2, axis=(1,2))
+    #threshold = np.percentile(errors[healthy_idx], 95)
+    #fpr, tpr, _ = roc_curve(y, errors)
+    #precision, recall, _ = precision_recall_curve(y, errors)
+    #pr_auc = auc(recall, precision)
+    #roc_auc = auc(fpr, tpr)
 
-    plot_results(results, y_data, config["output"]["folder"])
+    #results["LSTM"] = {"errors": errors, "threshold": threshold, 
+                       #"fpr": fpr, "tpr": tpr, "precision": precision, "recall": recall,
+                       #"pr_auc": pr_auc, "roc_auc": roc_auc,
+                       #"model": model_lstm}
 
-    # After plotting
-    save_models({"2D CNN": model_2d, "1D CNN": model_1d, "LSTM": model_lstm}, config["output"]["folder"])
-    save_thresholds(results, config["output"]["folder"])
+    # ---------------------------
+    # Classical ML models
+    # ---------------------------
+    ml_models = {
+        "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
+        "LogisticRegression": LogisticRegression(max_iter=500)
+    }
+    for name, clf in ml_models.items():
+        clf.fit(X_ML, y)
+        probs = clf.predict_proba(X_ML)[:,1]
+        fpr, tpr, _ = roc_curve(y, probs)
+        precision, recall, _ = precision_recall_curve(y, probs)
+        pr_auc = auc(recall, precision)
+        roc_auc = auc(fpr, tpr)
+        threshold = 0.5
+        results[name] = {"errors": probs, "threshold": threshold,
+                         "fpr": fpr, "tpr": tpr, "precision": precision, "recall": recall,
+                         "pr_auc": pr_auc, "roc_auc": roc_auc,
+                         "model": clf}
+
+    # ---------------------------
+    # Plot results
+    # ---------------------------
+    for name, r in results.items():
+        plt.figure(figsize=(10,6))
+        plt.hist(r["errors"][y==0], bins=30, alpha=0.5, label='Healthy')
+        plt.hist(r["errors"][y==1], bins=30, alpha=0.5, label='Loose')
+        plt.axvline(r["threshold"], color='red', linestyle='--')
+        plt.title(f"{name} Reconstruction Error / Probabilities")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_folder, f"{name}_errors.png"), dpi=300)
+        plt.close()
+
+    # Combined ROC + PR curves
+    plt.figure(figsize=(12,5))
+    plt.subplot(1,2,1)
+    for name, r in results.items():
+        plt.plot(r["fpr"], r["tpr"], label=f"{name} AUC={r['roc_auc']:.3f}")
+    plt.plot([0,1],[0,1],'k--')
+    plt.xlabel("FPR"); plt.ylabel("TPR / Recall"); plt.title("ROC Curve"); plt.legend()
+    plt.subplot(1,2,2)
+    for name, r in results.items():
+        plt.plot(r["recall"], r["precision"], label=f"{name} AP={r['pr_auc']:.3f}")
+    plt.xlabel("Recall"); plt.ylabel("Precision"); plt.title("Precision-Recall Curve"); plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_folder, "roc_pr_curves.png"), dpi=300)
+    plt.close()
 
     return results

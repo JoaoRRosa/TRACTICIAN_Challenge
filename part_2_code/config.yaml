@@ -6,7 +6,7 @@ training:
 
 threshold:
   method: "sigma"
-  sigma: 3
+  sigma: 1
   percentile: 75
 
 cnn2d:
@@ -24,8 +24,8 @@ output:
 dataset:
   raw_folder: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/data"
   output_folder: "prepared_data"
-  nperseg: 256
-  noverlap: 224
+  nperseg: 254
+  noverlap: 200
   use_db_scale: true
   metadata_file: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/part_3_metadata.csv"
   extra_features:

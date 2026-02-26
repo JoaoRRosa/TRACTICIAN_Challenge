@@ -1,9 +1,10 @@
 import os
 import glob
-import numpy as np
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import stft, get_window
+from scipy.stats import skew, kurtosis
 
 # ==============================
 # Helper functions
@@ -33,116 +34,149 @@ def generate_feature_figure_per_file(file_name, signals,condition, spectrograms,
 # ==============================
 # Main function
 # ==============================
-def build_dataset_from_csv(config):
+import os
+import glob
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import stft, get_window
+from scipy.stats import skew, kurtosis
+
+def extract_features(X):
     """
-    Builds dataset from CSV folder using metadata from YAML config.
-    Returns X_data, y_data, final_df
+    Extract statistical features from spectrograms.
+    X: array of shape (n_samples, freq, time, channels)
+    Returns: array of shape (n_samples, n_features)
+    """
+    feature_list = []
+    for sample in X:
+        feats = []
+        for ch in range(sample.shape[-1]):
+            spec = sample[:, :, ch]
+            feats.extend([
+                np.mean(spec),
+                np.std(spec),
+                np.max(spec),
+                np.min(spec),
+                np.median(spec),
+                skew(spec.flatten()),
+                kurtosis(spec.flatten()),
+                np.sum(spec**2),              # energy
+                np.argmax(np.mean(spec, axis=1)),  # dominant freq index
+            ])
+        feature_list.append(feats)
+    return np.array(feature_list)
+
+
+def build_dataset_from_csv(
+    folder_path,
+    metadata_file,
+    save_dir="outputs/dataset",
+    nperseg=256,
+    noverlap=128,
+    use_db_scale=True
+):
+    """
+    Build dataset from CSV files, extract spectrograms and features, 
+    and combine them for autoencoders and ML models.
     """
 
-    # -----------------------------
-    # Config and paths
-    # -----------------------------
-    raw_folder = config["dataset"]["raw_folder"]
-    output_folder = config["output"]["folder"]
-    data_output = config["dataset"]["output_folder"]
-    metadata_file = config["dataset"]["metadata_file"]
+    os.makedirs(save_dir, exist_ok=True)
 
-    os.makedirs(data_output, exist_ok=True)
-
-    nperseg = config["dataset"]["nperseg"]
-    noverlap = config["dataset"]["noverlap"]
-    use_db_scale = config["dataset"]["use_db_scale"]
-
-    # -----------------------------
     # Load metadata
-    # -----------------------------
     df_meta_data = pd.read_csv(metadata_file)
 
-    window = get_window("hann", nperseg)
-
-    X_data = []
-    y_data = []
-
-    # -----------------------------
     # Column mapping
-    # -----------------------------
     map_columns = {
-        'X-Axis':'time',
-        'Ch1 Y-Axis':'axisX',
-        'Ch2 Y-Axis':'axisY',
-        'Ch3 Y-Axis':'axisZ'
+        'X-Axis': 'time',
+        'Ch1 Y-Axis': 'axisX',
+        'Ch2 Y-Axis': 'axisY',
+        'Ch3 Y-Axis': 'axisZ'
     }
-    extra_cols = ['load [kw]', 'rpm', 'sensor_id', 'condition']
 
-    # -----------------------------
-    # Load CSVs
-    # -----------------------------
     all_data = []
-    csv_files = glob.glob(os.path.join(raw_folder, "*.csv"))
+    csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
 
     for file_path in csv_files:
         file_name = os.path.splitext(os.path.basename(file_path))[0]
         df = pd.read_csv(file_path)
         df["sample_id"] = file_name
-
-        # Step 1: rename using default mapping
         df = df.rename(columns=map_columns)
 
-        # Step 2: rename using orientation mapping from metadata
+        # Apply orientation mapping from metadata
         mask = df_meta_data["sample_id"] == file_name
         orientation_mapping = eval(df_meta_data.loc[mask, "orientation"].values[0])
         df = df.rename(columns=orientation_mapping)
 
-        # Step 3: add extra metadata columns
-        for col in extra_cols:
+        # Fill other metadata columns
+        for col in ["load [kw]", "rpm", "sensor_id", "condition"]:
             df[col] = df_meta_data.loc[mask, col].values[0]
-
-        # Step 4: determine the actual signal columns
-        signal_cols = [orientation_mapping['axisX'], orientation_mapping['axisY'], orientation_mapping['axisZ']]
-
-        df["signal_cols"] = [signal_cols]*len(df)  # optional, keep track
 
         all_data.append(df)
 
+
+    # Combine all files
     final_df = pd.concat(all_data)
     print("Finished processing files.")
 
-    # -----------------------------
-    # STFT and feature extraction
-    # -----------------------------
-    for sample_id, group in final_df.groupby('sample_id'):
-        group = group.sort_values('time')
-        fs = estimate_sampling_frequency(group['time'].values)
+    # --- Compute STFT spectrograms ---
+    X_data_list = []
+    y_data_list = []
 
-        signals = [group[col].values for col in signal_cols]
+    window = get_window("hann", nperseg)
 
-        condition = group['condition'].iloc[0]
-        label = 1 if condition.lower() == "healthy" else 0
+    for sample_id, group in final_df.groupby("sample_id"):
+        group = group.sort_values("time")
+        dt = group["time"].diff().dropna()
+        fs = 1.0 / np.median(dt)
+
+        signals = [
+            group["horizontal"].values,
+            group["axial"].values,
+            group["vertical"].values
+        ]
+        condition = group["condition"].iloc[0]
 
         spectrograms = []
-        for signal in signals:
-            f, t, Zxx = stft(signal, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap)
-            magnitude = np.abs(Zxx)
+        for sig in signals:
+            f, t, Zxx = stft(sig, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap)
+            mag = np.abs(Zxx)
             if use_db_scale:
-                magnitude = 20 * np.log10(magnitude + 1e-10)
-            spectrograms.append(magnitude)
+                mag = 20*np.log10(mag + 1e-10)
+            spectrograms.append(mag)
 
-        spec_stack = np.stack(spectrograms, axis=-1)
-        X_data.append(spec_stack)
-        y_data.append(label)
+        spectrograms = np.stack(spectrograms, axis=-1)  # (freq, time, 3)
+        X_data_list.append(spectrograms)
+        y_data_list.append(0 if condition == "healthy" else 1)
 
-        # Generate per-file figure
-        generate_feature_figure_per_file(sample_id, signals,condition, spectrograms, f, [], output_folder)
+    X_data_raw = np.array(X_data_list, dtype=np.float32)  # raw spectrograms
+    y_data = np.array(y_data_list, dtype=np.int32)
 
-    X_data = np.array(X_data, dtype=np.float32)
-    y_data = np.array(y_data, dtype=np.int32)
+    print("Raw dataset shape:", X_data_raw.shape)
 
-    # Save dataset
-    np.save(os.path.join(data_output, "X_data.npy"), X_data)
-    np.save(os.path.join(data_output, "y_data.npy"), y_data)
+    # --- Extract statistical features ---
+    X_features = extract_features(X_data_raw)
+    print("Feature shape:", X_features.shape)
 
-    print("Dataset saved:")
-    print("X shape:", X_data.shape)
-    print("y shape:", y_data.shape)
+    # --- Flatten spectrograms along freq axis and combine with features ---
+    n_samples, freq, time, channels = X_data_raw.shape
+    X_flat = X_data_raw.reshape(n_samples, time, -1)  # shape (n_samples, time, freq*channels)
 
-    return X_data, y_data#, final_df
+    # Expand features along time dimension
+    n_feats = X_features.shape[1]
+    X_features_expanded = np.repeat(X_features[:, np.newaxis, :], time, axis=1)
+
+    # Combine spectrogram + features as last axis (channels)
+    X_combined = np.concatenate([X_flat, X_features_expanded], axis=2)  # (n_samples, time, freq*channels + n_feats)
+    print("Combined shape for autoencoders:", X_combined.shape)
+
+    # --- Also prepare flat array for classical ML ---
+    X_flat_ML = np.concatenate([X_data_raw.reshape(n_samples, -1), X_features], axis=1)
+    print("Combined shape for classical ML:", X_flat_ML.shape)
+
+    # Save combined dataset
+    save_path = os.path.join(save_dir, "X_y_dataset.npz")
+    np.savez_compressed(save_path, X_combined=X_combined, X_ML=X_flat_ML, y=y_data)
+    print(f"Dataset saved: {save_path}")
+
+    return X_combined, X_flat_ML, y_data
