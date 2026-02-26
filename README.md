@@ -12,7 +12,7 @@ The fist problem involved the detection of lubricant issues that can cause distr
 
 This anomalous condition manifests in the vibration spectrum by generating random noise (background noise), typically in the form of a 'carpet' as it approaches the natural frequencies. Carpet patterns can be perceived as a series of spectral peaks that are randomly close to each other, and its detection is of great importance in order to diagnose lubrication problems. Figure 1 shows an example of a carpet region, along with an illustration of what does not qualify as a carpet—namely, a series of regularly spaced spectral peaks. 
 
-![Carpet Example Figure](assets\Carpet_example.png)
+![Carpet Example Figure](assets/Carpet_example.png)
 
 ## 1. Overview
 
