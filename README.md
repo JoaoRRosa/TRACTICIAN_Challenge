@@ -83,14 +83,12 @@ project/
 │   │-- part_2/
 │-- outputs/
 │   │-- part_1/
+│   │-- part_2/
 │-- train_part2/
 │   │-- main.py
 │   │-- utils.py
 │   │-- pipeline.py
 │   │-- models.py
-│-- reports/
-│   │-- Report_part_1.md
-│   │-- Report_part_2.md
 │-- Unsupervised_Carpet_Predictor.py
 │-- Part1_config.yaml
 │-- Loseness_Detection.py
