@@ -37,15 +37,21 @@ Figure 2. Pipeline solution based on the DBSCAN+ spectral RMS filter
 
 The second problem involved the detection of losenes in bolts holding a motor to its base. Looseness is a common fault condition that can lead to excessive vibration. Structural looseness typically involves loose bolts in non-rotating components. It is important to address this issue promptly to prevent the development of additional failures caused by the resulting vibrations. 
 
-- Here it was proposed a pipeline for diferent ML models selection:
-The code available in train_part2 folder was used to generate data and train the different models using the parameters avalible from Part_2 config.yaml. The models were compared in a validation dataset using a predefined split (available together with other hyperparameters on the Part2_config.yaml file)
+- Here it was proposed a pipeline for diferent ML models (RandomForest,LogisticRegression,SVM,etc.) selection:
+The code available in train_part2 folder was used to generate data and train the different models using the parameters avalible from ```Part_2 config.yaml```. The models were salved in the folder ```train_part2/outputs``` compared in a validation dataset using a predefined split (available together with other hyperparameters on the Part2_config.yaml file)
 
 ```text
 │-- train_part2/
+│   │-- Part_2 config.yaml
 │   │-- main.py
 │   │-- utils.py
 │   │-- pipeline.py
 │   │-- models.py
+│   │--outputs/
+│   │   │--RandomForest.pkl
+│   │   │--LogisticRegression.pkl
+│   │   │--SVM.pkl
+│   │   │--GradientBoost.pkl
 ```
 
 -And feature extraction based on the following highly used vibration metrics were used: 
@@ -85,6 +91,11 @@ project/
 │   │-- part_1/
 │   │-- part_2/
 │-- train_part2/
+│   │--outputs/
+│   │   │--RandomForest.pkl
+│   │   │--LogisticRegression.pkl
+│   │   │--SVM.pkl
+│   │   │--GradientBoost.pkl
 │   │-- main.py
 │   │-- utils.py
 │   │-- pipeline.py
