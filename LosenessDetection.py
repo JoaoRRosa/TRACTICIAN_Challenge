@@ -18,69 +18,92 @@ def plot_features_with_test_predictions(
 ):
     """
     Plots aggregated features by class (train) and predicted labels (test).
-    
-    Parameters
-    ----------
-    X_train_features : np.ndarray
-        Shape (n_train_samples, n_features)
-    y_train : np.ndarray
-        Labels for training data (0=healthy, 1=faulty)
-    X_test_features : np.ndarray
-        Shape (n_test_samples, n_features)
-    y_test_pred : np.ndarray
-        Predicted labels for test data (0=healthy, 1=faulty)
-    feature_names : list of str
-        Names of features (length must match n_features)
-    save_dir : str
-        Folder to save plots
+    Assumes features are ordered per axis (all X, then Y, then Z).
     """
+
     os.makedirs(save_dir, exist_ok=True)
     n_features = X_train_features.shape[1]
-    
-    if feature_names is None:
-        feature_names = [f"feat_{i}" for i in range(n_features)]*3
-    
-    # Convert to arrays if needed
+
+    # Convert to arrays
     X_train_features = np.array(X_train_features)
     y_train = np.array(y_train)
     X_test_features = np.array(X_test_features)
     y_test_pred = np.array(y_test_pred)
 
-    # Aggregate features: mean per class
+    # ------------------------------------------------------------------
+    # Expand and reorder feature names (x,y,z interleaved per feature)
+    # ------------------------------------------------------------------
+    if feature_names is None:
+        base_n = n_features // 3
+        feature_names = [f"feat_{i}" for i in range(base_n)]
+
+    base_n = len(feature_names)
+
+    if n_features == base_n * 3:
+        axes_labels = ["X", "Y", "Z"]
+        reordered_names = []
+
+        # Reorder assuming blocks per axis
+        for i in range(base_n):
+            for axis in range(3):
+                reordered_names.append(f"{feature_names[i]}_{axes_labels[axis]}")
+
+        feature_names = reordered_names
+    else:
+        # fallback safety
+        feature_names = [f"feat_{i}" for i in range(n_features)]
+
+    # ------------------------------------------------------------------
+    # Aggregate features (mean per class)
+    # ------------------------------------------------------------------
     train_mean = []
     test_mean = []
     classes = [0, 1]
+
     for cls in classes:
-        train_mean.append(X_train_features[y_train==cls].mean(axis=0))
-        test_mean.append(X_test_features[y_test_pred==cls].mean(axis=0))
+        train_mean.append(X_train_features[y_train == cls].mean(axis=0))
+        test_mean.append(X_test_features[y_test_pred == cls].mean(axis=0))
 
     train_mean = np.array(train_mean)
     test_mean = np.array(test_mean)
 
-    # Plot all features in a single figure with subplots
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
     n_cols = 3
     n_rows = int(np.ceil(n_features / n_cols))
+
     fig, axs = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
     axs = axs.flatten()
 
     for i in range(n_features):
         ax = axs[i]
-        # Training data
-        ax.bar(np.arange(len(classes))-0.2, train_mean[:, i], width=0.4, label="Train")
-        # Test predictions
-        ax.bar(np.arange(len(classes))+0.2, test_mean[:, i], width=0.4, label="Test Pred")
-        ax.set_xticks([0,1])
-        ax.set_xticklabels(["Healthy","Faulty"])
+
+        ax.bar(np.arange(len(classes)) - 0.2, train_mean[:, i],
+               width=0.4, label="Train")
+
+        ax.bar(np.arange(len(classes)) + 0.2, test_mean[:, i],
+               width=0.4, label="Test Pred")
+
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["Healthy", "Faulty"])
         ax.set_title(feature_names[i])
         ax.grid(True)
-        if i==0:
+
+        if i == 0:
             ax.legend()
 
+    # Hide unused subplots
+    for j in range(n_features, len(axs)):
+        axs[j].axis("off")
+
     plt.suptitle(title)
-    plt.tight_layout(rect=[0,0,1,0.95])
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
     save_path = os.path.join(save_dir, "features_train_vs_test_pred.png")
     plt.savefig(save_path, dpi=300)
     plt.close(fig)
+
     print(f"Feature comparison plot saved: {save_path}")
 
 class LoosenessModel:
@@ -204,8 +227,9 @@ if __name__ == "__main__":
     X = data['X']
     y = data['y']
 
-    plot_features_with_test_predictions(X, y,X_test, y_pred_test)#
-                                        #feature_names =["RMS"]*3,"RMS_HP","CrestFactor","ZeroCrossings","Kurtosis",'frequency'])
+    plot_features_with_test_predictions(X, y,X_test, y_pred_test,
+                                        feature_names =["RMS","RMS_HP","CrestFactor","ZeroCrossings","Kurtosis",
+                                        "vel_RMS", "vel_PTP", "vel_SLOPE", "vel_R2"])
 
 
 

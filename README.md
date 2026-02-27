@@ -33,8 +33,8 @@ At which a unsupervised machine-learning techinique called Density-Based Spatial
 
 The second problem involved the detection of losenes in bolts holding a motor to its base. Looseness is a common fault condition that can lead to excessive vibration. Structural looseness typically involves loose bolts in non-rotating components. It is important to address this issue promptly to prevent the development of additional failures caused by the resulting vibrations. 
 
--Here it was proposed a pipeline for diferent ML models selection:
-The code available in part_2_train folder was used to generate data and train the different models using the parameters avalible from Part_2 config.yaml. The models were compared in a validation dataset using a predefined split (available together with other hyperparameters on the Part2_config.yaml file)
+- Here it was proposed a pipeline for diferent ML models selection:
+The code available in train_part2 folder was used to generate data and train the different models using the parameters avalible from Part_2 config.yaml. The models were compared in a validation dataset using a predefined split (available together with other hyperparameters on the Part2_config.yaml file)
 
 ```text
 │-- train_part2/
@@ -42,7 +42,7 @@ The code available in part_2_train folder was used to generate data and train th
 │   │-- utils.py
 │   │-- pipeline.py
 │   │-- models.py
-'''
+```
 
 -And feature extraction based on the following highly used vibration metrics were used: 
 - Root Mean Squared (RMS)
@@ -56,9 +56,9 @@ The code available in part_2_train folder was used to generate data and train th
 
 ---
 
-## 3. Project Structure
+## Project Structure
 
-The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the Unsupervised_Carpet_predictor.py file and in the case of the second part it is the LosenessDetection.py file.Each file has its specific Part_N_config.yaml that holds hyperparameters and folders locations required to run the file.
+The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the ```Unsupervised_Carpet_predictor.py``` file and in the case of the second part it is the ```LosenessDetection.py``` file.Each file has its specific Part_N_config.yaml that holds hyperparameters and folders locations required to run the file.
 
 ```text
 project/
@@ -82,36 +82,58 @@ project/
 │-- README.md
 │-- requirements.txt
 │-- Wave_utils.py
-````
+```
 
+## Running the project
 
 In order to run those files it is first necessary to install the dependencies availble in requirements.txt.
 
-```text
-
+```
  pip install -r requirements.txt
-
 ```
 
  Having installed the dependencies each config.yaml file can be modified in order to select the folder with the data. In order to run Part 2 a folder with the trained model and Standart Scaler should also be selected.
 
- After changing the Part1_config.yaml file the Unsupervised_Carpet_predictor.py is ready to be run using
+ After changing the ```Part1_config.yaml``` file, with the corresponding data folder locations, the ```Unsupervised_Carpet_predictor.py``` is ready to be run using
 
-```text
+```
  python Unsupervised_Carpet_predictor.py
 ```
 
  The code will read each csv file containg a Wave and will return a list of CarpetRegions, printing in the screen the Wave with most severe carpet noises (based on the sum of the energies of the carpets). Even more, the model will oputput in the desired output folder the decision pipeline process for further checking, the features per regions grouped by te DBSCAN in a csv file and a plot of these features. The outputs of the proposed method are available at 
  
-```text
+```
 │-- outputs/
 │   │-- part_1/
 ```
 
- Similarly for the Part2_config.yaml and the LosenessDetection.py:
+ Similarly for the ```Part2_config.yaml``` and the ```LosenessDetection.py```:
 
-```text
+```
  python LosenessDetection.py
 ```
 
- The Loseness detection will be based on the supervised pretained models from folder Part2_train. The chosen moedl will use aceleration and velocity features described above to dertermine wheter the bolts are lose or not.
+ The Loseness detection will be based on the supervised pretained models from folder Part2_train. The chosen model will use aceleration and velocity features described above to dertermine wheter the bolts are lose or not. If modification or retraining is necessary you can modify the code available at the ```train_part2``` folder bellow.
+
+ ```text
+│-- train_part2/
+│   │-- main.py
+│   │-- utils.py
+│   │-- pipeline.py
+│   │-- models.py
+```
+and run the ```main.py file```. The expected output from the trainnig pipeline is exihibited bellow:
+
+```text
+Feature dataset shape: X=(250, 27), y=(250,)
+Saved model StandardScaler to outputs/part_2\StandardScaler.pkl
+Saved model RandomForest to outputs/part_2\RandomForest.pkl
+Saved model GradientBoosting to outputs/part_2\GradientBoosting.pkl
+Saved model SVM to outputs/part_2\SVM.pkl
+Saved model LogisticRegression to outputs/part_2\LogisticRegression.pkl
+RandomForest Validation Accuracy: 0.980
+GradientBoosting Validation Accuracy: 0.980
+SVM Validation Accuracy: 0.960
+LogisticRegression Validation Accuracy: 0.980
+Pipeline finished. Models and plots saved.
+```

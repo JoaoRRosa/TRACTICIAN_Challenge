@@ -10,5 +10,5 @@ dataset:
   folder_path: 'part_1'
 
 outputs:
-  folder: "outputs/part_1" 
-  features_folder: "outputs/pydantic_model/features"
+  folder: "outputs/part_1/plots" 
+  features_folder: "outputs/part_1/features"

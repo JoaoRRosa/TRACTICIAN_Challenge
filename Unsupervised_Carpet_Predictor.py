@@ -211,7 +211,7 @@ class Model:
 
         for ax, feature in zip(axes, feature_cols):
             ax.bar(
-                df[region_col],
+                f'{df[region_col]} Hz',
                 df[feature],
                 color=colors
             )
@@ -291,7 +291,7 @@ class Model:
         #axs[1].legend()
 
         # 3 RMS filter plot
-        labels_plot = [f"{round(region.start_hz,0)}-{round(region.end_hz,0)}" for region in regions]
+        labels_plot = [f"{round(region.start_hz,0)}-{round(region.end_hz,0)} Hz" for region in regions]
         full_signal_rms = self.root_mean_squared(wave)
         threshold = self.params['percentage_overall_RMS'] * full_signal_rms/(100 * len(regions))
         axs[2].bar(labels_plot + ["Full signal"],rms_values_per_region + [full_signal_rms])
@@ -333,14 +333,14 @@ if __name__ == "__main__":
 
     params = config['model']['params']
 
-    INPUT_FOLDER = 'part_1'
-    OUTPUT_FOLDER = 'outputs/pydantic_model'
-    FEATURES_FOLDER = 'outputs/pydantic_model/features'
+    INPUT_FOLDER = config['dataset']['folder_path']
+    OUTPUT_FOLDER = config['outputs']['folder']
+    FEATURES_FOLDER = config['outputs']['features_folder']
 
     os.makedirs(OUTPUT_FOLDER,exist_ok=True)
     os.makedirs(FEATURES_FOLDER,exist_ok=True)
     csv_files = glob.glob(os.path.join(INPUT_FOLDER, "*.csv"))
-        
+
     model = Model(**params)
 
     samples_severity = {}

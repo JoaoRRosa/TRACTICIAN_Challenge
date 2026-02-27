@@ -280,30 +280,70 @@ def estimate_operational_frequency_from_signals(waves : List[Wave], min_freq=1.0
     f_op = np.mean(dominant_freqs)
     return f_op
 
-def plot_waves(waves : List[Wave],fo,condition,file_name,save_dir):
-    fig, axs = plt.subplots(3, 2, figsize=(16, 12))  # 3 signals x 2 columns (Time, FFT)
+def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir, fs):
+    """
+    Plots velocity, acceleration, and FFT for each wave axis.
+
+    Parameters
+    ----------
+    waves : List[Wave]
+        List containing Wave objects (one per axis).
+    fo : float
+        Operational frequency (Hz).
+    condition : str
+        Condition label.
+    file_name : str
+        Base file name.
+    save_dir : str
+        Directory to save the figure.
+    fs : float
+        Sampling frequency.
+    """
+
+    fig, axs = plt.subplots(3, 3, figsize=(18, 14))  # 3 axes × 3 columns
     axes_names = ["Horizontal", "Axial", "Vertical"]
 
     for i, wave in enumerate(waves):
-                
-        # Time-domain plot
-        axs[i, 0].plot(wave.time, wave.signal)
-        axs[i, 0].set_title(f"{file_name} - {condition} - {axes_names[i]} (Time)")
-        axs[i, 0].set_xlabel("Time [s]")
-        axs[i, 0].set_ylabel("Amplitude")
 
-        # FFT plot
-        axs[i, 1].plot(wave.frequencies, wave.amplitudes)
-        axs[i, 1].set_title(f"{file_name} - {condition} - {axes_names[i]} (FFT)")
-        axs[i, 1].set_xlabel("Frequency [Hz]")
+        # -----------------------
+        # Compute velocity
+        # -----------------------
+        vel = acceleration_to_velocity(wave.signal, fs)
+
+        # -----------------------
+        # Velocity (time-domain)
+        # -----------------------
+        axs[i, 0].plot(wave.time, vel, color="green")
+        axs[i, 0].set_title(f"{file_name} - {condition} - {axes_names[i]} (Velocity)")
+        axs[i, 0].set_xlabel("Time [s]")
+        axs[i, 0].set_ylabel("Velocity")
+
+        # -----------------------
+        # Acceleration (time-domain)
+        # -----------------------
+        axs[i, 1].plot(wave.time, wave.signal, color="blue")
+        axs[i, 1].set_title(f"{file_name} - {condition} - {axes_names[i]} (Acceleration)")
+        axs[i, 1].set_xlabel("Time [s]")
         axs[i, 1].set_ylabel("Amplitude")
 
+        # -----------------------
+        # FFT (from acceleration)
+        # -----------------------
+        n = len(wave.signal)
+        freqs = np.fft.rfftfreq(n, d=1/fs)
+        fft_vals = np.fft.rfft(wave.signal)
+        amp = np.abs(fft_vals) / n
+
+        axs[i, 2].plot(freqs, amp)
+        axs[i, 2].set_title(f"{file_name} - {condition} - {axes_names[i]} (FFT)")
+        axs[i, 2].set_xlabel("Frequency [Hz]")
+        axs[i, 2].set_ylabel("Amplitude")
+
         # Highlight operational frequency
-        f_op = fo#estimate_operational_frequency_from_signals(waves)
-        axs[i, 1].axvline(f_op, color="red", linestyle="--", label="Operating freq")
-        axs[i, 1].legend()
+        axs[i, 2].axvline(fo, color="red", linestyle="--", label="Operating freq")
+        axs[i, 2].legend()
 
     plt.tight_layout()
-    os.makedirs(save_dir,exist_ok=True)
-    plt.savefig(os.path.join(save_dir, f"{file_name}_signals_fft.png"), dpi=300)
+    os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(os.path.join(save_dir, f"{file_name}_signals_velocity_acc_fft.png"), dpi=300)
     plt.close(fig)
