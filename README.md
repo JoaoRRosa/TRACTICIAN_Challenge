@@ -82,36 +82,36 @@ project/
 │-- README.md
 │-- requirements.txt
 │-- Wave_utils.py
-'''
+````
 
 
 In order to run those files it is first necessary to install the dependencies availble in requirements.txt.
 
-'''text
+```text
 
  pip install -r requirements.txt
 
-'''
+```
 
  Having installed the dependencies each config.yaml file can be modified in order to select the folder with the data. In order to run Part 2 a folder with the trained model and Standart Scaler should also be selected.
 
  After changing the Part1_config.yaml file the Unsupervised_Carpet_predictor.py is ready to be run using
 
- '''text
+```text
  python Unsupervised_Carpet_predictor.py
- '''
+```
 
  The code will read each csv file containg a Wave and will return a list of CarpetRegions, printing in the screen the Wave with most severe carpet noises (based on the sum of the energies of the carpets). Even more, the model will oputput in the desired output folder the decision pipeline process for further checking, the features per regions grouped by te DBSCAN in a csv file and a plot of these features. The outputs of the proposed method are available at 
  
-'''text
+```text
 │-- outputs/
 │   │-- part_1/
-'''
+```
 
  Similarly for the Part2_config.yaml and the LosenessDetection.py:
 
-  '''text
+```text
  python LosenessDetection.py
- '''
+```
 
  The Loseness detection will be based on the supervised pretained models from folder Part2_train. The chosen moedl will use aceleration and velocity features described above to dertermine wheter the bolts are lose or not.
