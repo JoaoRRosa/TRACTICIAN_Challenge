@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 from scipy.signal import butter, sosfiltfilt
 from scipy.signal import stft, get_window
-from scipy.stats import skew, kurtosis
-
+from scipy.stats import skew, kurtosis, linregress
+import matplotlib.pyplot as plt
+import os
 
 class Region(BaseModel): 
     start_hz: float = Field(ge = 0, description="Start frequency in Hz") 
@@ -124,24 +125,43 @@ class Wave_filter:
 
         return wave.model_copy(update={"signal": filtered})
 
-def extract_features_from_signals(waves:List[Wave], rpm, cutoff=250):
+def extract_features_from_signals(waves:List[Wave], cutoff=250):
     """
     Extract features from a list of 1D signals [horizontal, axial, vertical]
     """
     feats = []
-    filter = Wave_filter
+    filter = Wave_filter()
 
     for wave in waves:
         signal = np.array(wave.signal)
+        time = np.array(wave.time)
+
         rms = np.sqrt(np.mean(signal**2))
-        rms_hp = np.sqrt(np.mean(filter.apply_highpass_filter(signal, wave.wave_frequency,cutoff=cutoff)**2))
+        filtered_wave = filter.apply_highpass_filter(wave,cutoff=cutoff)
+        rms_hp = np.sqrt(np.mean(np.array(filtered_wave.signal)**2))
         peak = np.max(np.abs(signal))
         crest = peak / rms if rms != 0 else 0
         zc = np.sum(np.diff(np.sign(signal)) != 0) / len(signal)
         k = kurtosis(signal)
         # Add operational frequency
-        f_op = rpm / 60.0
-        feats.extend([rms, rms_hp, crest, zc, k, f_op])
+        #f_op = rpm / 60.0
+        f_op = estimate_operational_frequency_from_signals(waves)
+
+        # Velocity features
+        # Velocity signal
+        vel = np.gradient(signal, time)  # numerical derivative
+        vel_rms = np.sqrt(np.mean(vel**2))
+        vel_ptp = np.ptp(vel)  # peak-to-peak
+        # Velocity trend
+        slope, intercept, r_value, p_value, std_err = linregress(time, vel)
+        vel_slope = slope
+        vel_r2 = r_value**2  # confidence in linear trend
+
+        feats.extend([
+            rms, rms_hp, crest, zc, k, f_op,
+            vel_rms, vel_ptp, vel_slope, vel_r2
+        ])
+
     return np.array(feats, dtype=np.float32)
 
 def compute_spectrograms(waves: list[Wave], fs=1.0, window='hann', nperseg=256, noverlap=None, use_db_scale=True):
@@ -196,3 +216,94 @@ def estimate_sampling_frequency(wave: Wave):
     dt = np.diff(wave.time)
     median_dt = np.median(dt)
     return 1.0 / median_dt
+
+def acceleration_to_velocity(acc, fs):
+    """
+    Integrate acceleration to velocity in frequency domain to avoid drift.
+    """
+    acc = acc - np.mean(acc)  # remove DC
+    n = len(acc)
+    fft_vals = np.fft.rfft(acc)
+    freqs = np.fft.rfftfreq(n, 1/fs)
+    vel_fft = np.zeros_like(fft_vals, dtype=np.complex64)
+    for i in range(1, len(freqs)):
+        vel_fft[i] = fft_vals[i] / (1j * 2 * np.pi * freqs[i])
+    velocity = np.fft.irfft(vel_fft, n=n)
+    return velocity
+
+def estimate_operational_frequency_from_signals(waves : List[Wave], min_freq=1.0, max_freq=None):
+
+
+    """
+    Estimate operational frequency from multiple signals (e.g., horizontal, axial, vertical)
+    by finding the dominant frequency in each direction and averaging.
+
+    Parameters
+    ----------
+    signals : list of 1D numpy arrays
+        Signals in different directions.
+    fs : float
+        Sampling frequency (Hz).
+    min_freq : float
+        Minimum frequency to consider (Hz) to avoid low-frequency noise.
+    max_freq : float or None
+        Maximum frequency to consider (Hz). Defaults to Nyquist.
+
+    Returns
+    -------
+    f_op : float
+        Estimated operational frequency (Hz)
+    """
+    if max_freq is None:
+        max_freq = waves[0].wave_frequency / 2
+
+    dominant_freqs = []
+
+    for wave in waves:
+        n = wave.wave_length
+        signal = np.array(wave.signal)
+        n = len(signal)
+        fft_vals = np.fft.rfft(signal)
+        fft_freqs = np.fft.rfftfreq(n, 1/wave.wave_frequency)
+        magnitude = np.abs(fft_vals)
+
+        # Only consider frequencies within the specified range
+        valid_idx = (fft_freqs >= min_freq) & (fft_freqs <= max_freq)
+        fft_freqs = fft_freqs[valid_idx]
+        magnitude = magnitude[valid_idx]
+
+        # Find frequency with maximum amplitude
+        dom_freq = fft_freqs[np.argmax(magnitude)]
+        dominant_freqs.append(dom_freq)
+
+    # Average dominant frequency across all signals
+    f_op = np.mean(dominant_freqs)
+    return f_op
+
+def plot_waves(waves : List[Wave],fo,condition,file_name,save_dir):
+    fig, axs = plt.subplots(3, 2, figsize=(16, 12))  # 3 signals x 2 columns (Time, FFT)
+    axes_names = ["Horizontal", "Axial", "Vertical"]
+
+    for i, wave in enumerate(waves):
+                
+        # Time-domain plot
+        axs[i, 0].plot(wave.time, wave.signal)
+        axs[i, 0].set_title(f"{file_name} - {condition} - {axes_names[i]} (Time)")
+        axs[i, 0].set_xlabel("Time [s]")
+        axs[i, 0].set_ylabel("Amplitude")
+
+        # FFT plot
+        axs[i, 1].plot(wave.frequencies, wave.amplitudes)
+        axs[i, 1].set_title(f"{file_name} - {condition} - {axes_names[i]} (FFT)")
+        axs[i, 1].set_xlabel("Frequency [Hz]")
+        axs[i, 1].set_ylabel("Amplitude")
+
+        # Highlight operational frequency
+        f_op = fo#estimate_operational_frequency_from_signals(waves)
+        axs[i, 1].axvline(f_op, color="red", linestyle="--", label="Operating freq")
+        axs[i, 1].legend()
+
+    plt.tight_layout()
+    os.makedirs(save_dir,exist_ok=True)
+    plt.savefig(os.path.join(save_dir, f"{file_name}_signals_fft.png"), dpi=300)
+    plt.close(fig)

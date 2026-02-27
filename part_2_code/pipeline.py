@@ -55,6 +55,30 @@ def save_model_plots(results, y_train=None, y_val=None, output_folder="outputs")
             val_acc = accuracy_score(y_val, preds)
             print(f"{name} Validation Accuracy: {val_acc:.3f}")
 
+        # ---------------------------
+        # Feature importance
+        # ---------------------------
+        if "model" in r and hasattr(r["model"], "feature_importances_") or hasattr(r["model"], "coef_"):
+            model = r["model"]
+            if hasattr(model, "feature_importances_"):
+                importances = model.feature_importances_
+            elif hasattr(model, "coef_"):
+                importances = np.abs(model.coef_).flatten()
+            else:
+                importances = None
+
+            if importances is not None:
+                plt.figure(figsize=(12, 6))
+                indices = np.arange(len(importances))
+                # Feature names if available
+                feature_names = r.get("feature_names", [f"F{i}" for i in range(len(importances))])
+                plt.bar(indices, importances)
+                plt.xticks(indices, feature_names, rotation=90)
+                plt.title(f"{name} Feature Importances")
+                plt.tight_layout()
+                plt.savefig(os.path.join(output_folder, f"{name}_feature_importances.png"), dpi=300)
+                plt.close()
+
     # ---------------------------
     # Combined ROC Curves
     # ---------------------------
@@ -82,7 +106,6 @@ def save_model_plots(results, y_train=None, y_val=None, output_folder="outputs")
         plt.tight_layout()
         plt.savefig(os.path.join(output_folder, "combined_validation_pr.png"), dpi=300)
         plt.close()
-
 
 def run_pipeline(X, y, config):
     """
