@@ -211,7 +211,7 @@ class Model:
 
         for ax, feature in zip(axes, feature_cols):
             ax.bar(
-                f'{df[region_col]} Hz',
+                df[region_col],
                 df[feature],
                 color=colors
             )
