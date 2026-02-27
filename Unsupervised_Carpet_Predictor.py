@@ -317,6 +317,12 @@ class Model:
         plt.close()
         print(f"Saved pipeline figure: {save_path}")
 
+    def predict_carpet_severity(self,wave: Wave):
+        carpet_regions = self.predict(wave)
+        severity = np.sum([self.root_mean_squared(self.apply_bandpass_filter(wave,carpet.start_hz,carpet.end_hz)) for carpet in carpet_regions])
+        return severity
+
+
 if __name__ == "__main__":
 
     INPUT_FOLDER = 'part_1'
@@ -334,6 +340,8 @@ if __name__ == "__main__":
     params = config['model']['params']    
     model = Model(**params)
 
+    samples_severity = {}
+
     for file in csv_files:
 
         print(f"Processing: {file}")
@@ -348,3 +356,7 @@ if __name__ == "__main__":
         save_path_features = os.path.join(FEATURES_FOLDER,f"{os.path.splitext(os.path.basename(file))[0]}_features.csv")
 
         carpet_region_list = model.predict(wave,output_file_fig=save_path_pipeline,output_file_features=save_path_features)
+
+        samples_severity[file] = model.predict_carpet_severity(wave)
+
+    print(f"The sample with the worst carpet severity is {max(samples_severity, key=samples_severity.get)}")

@@ -11,7 +11,7 @@ training:
   validation_split: 0.2
 
 output:
-  folder: "outputs/ml_results"        # folder to save models, plots, and feature dataset
+  folder: "part_2_code/outputs/ml_results"        # folder to save models, plots, and feature dataset
 
 ml_models:
   RandomForest:
@@ -32,12 +32,13 @@ ml_models:
 
 
 test:
-  data: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/test_data"
-  metadata_file: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/test_metadata.csv"
+  data: "part_2/test_data"
+  metadata_file: "part_2/test_metadata.csv"
 
 predictor:
-  scaler_path: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2_code/outputs/ml_results/StandardScaler.pkl"
-  model_path: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2_code/outputs/ml_results/LogisticRegression.pkl"
+  scaler_path: "part_2_code/outputs/ml_results/StandardScaler.pkl"
+  model_path: "part_2_code/outputs/ml_results/LogisticRegression.pkl"
   type: "sklearn"          # or "keras"
   threshold: 0.5
+  Xy_folder: part_2_code/outputs/ml_results\X_y_features.npz
 
