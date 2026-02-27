@@ -1,0 +1,44 @@
+dataset:
+  folder_path: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/data"        # folder containing all CSV signal files
+  metadata_file: "C:/Users/jpedr/Desktop/TRACTICIAN_Challenge/part_2/part_3_metadata.csv"   # metadata CSV
+  val_split: 0.2                       # fraction for validation split
+
+training:
+  # Not used for ML models, kept for future extensions
+  epochs: 50
+  batch_size: 32
+  optimizer: "adam"
+  validation_split: 0.2
+
+output:
+  folder: "outputs/part_2"        # folder to save models, plots, and feature dataset
+
+ml_models:
+  RandomForest:
+    n_estimators: 200
+    max_depth: null
+    random_state: 42
+  GradientBoosting:
+    n_estimators: 200
+    learning_rate: 0.1
+    random_state: 42
+  SVM:
+    kernel: "rbf"
+    C: 1.0
+    probability: true
+    random_state: 42
+  LogisticRegression:
+    max_iter: 500
+
+
+test:
+  data: "part_2/test_data"
+  metadata_file: "part_2/test_metadata.csv"
+
+predictor:
+  scaler_path: "train_part2/outputs/part_2/StandardScaler.pkl"
+  model_path: "train_part2/outputs/part_2/LogisticRegression.pkl"
+  type: "sklearn"          # or "keras"
+  threshold: 0.5
+  Xy_folder: "train_part2/outputs/part_2/preprocessed_data/X_y_features.npz"
+
