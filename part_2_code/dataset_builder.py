@@ -3,90 +3,42 @@ import glob
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import stft, get_window
 from scipy.stats import skew, kurtosis
+from scipy.signal import butter, filtfilt
 
-# ==============================
-# Helper functions
-# ==============================
-def estimate_sampling_frequency(time_array):
-    dt = np.diff(time_array)
-    median_dt = np.median(dt)
-    return 1.0 / median_dt
+# -------------------------
+# Signal Feature Extraction
+# -------------------------
+def highpass_filter(signal, fs, cutoff=250, order=4):
+    nyq = 0.5 * fs
+    b, a = butter(order, cutoff / nyq, btype="high")
+    return filtfilt(b, a, signal)
 
-def generate_feature_figure_per_file(file_name, signals,condition, spectrograms, freqs, features, output_folder):
-    feature_folder = os.path.join(output_folder, "features")
-    os.makedirs(feature_folder, exist_ok=True)
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    fig.suptitle(f"Feature Analysis: {file_name} - condition {condition}")
-    signal_names = ["Signal 1", "Signal 2", "Signal 3"]
-    for i in range(3):
-        axes[0, i].plot(signals[i])
-        axes[0, i].set_title(f"{signal_names[i]} - Raw")
-        im = axes[1, i].imshow(spectrograms[i], aspect="auto", origin="lower")
-        axes[1, i].set_title(f"{signal_names[i]} - Spectrogram")
-        fig.colorbar(im, ax=axes[1, i])
-    plt.tight_layout()
-    save_path = os.path.join(feature_folder, f"{file_name}.png")
-    plt.savefig(save_path, dpi=300)
-    plt.close()
-
-# ==============================
-# Main function
-# ==============================
-import os
-import glob
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import stft, get_window
-from scipy.stats import skew, kurtosis
-
-def extract_features(X):
+def extract_features_from_signals(signals, fs, rpm):
     """
-    Extract statistical features from spectrograms.
-    X: array of shape (n_samples, freq, time, channels)
-    Returns: array of shape (n_samples, n_features)
+    Extract features from a list of 1D signals [horizontal, axial, vertical]
     """
-    feature_list = []
-    for sample in X:
-        feats = []
-        for ch in range(sample.shape[-1]):
-            spec = sample[:, :, ch]
-            feats.extend([
-                np.mean(spec),
-                np.std(spec),
-                np.max(spec),
-                np.min(spec),
-                np.median(spec),
-                skew(spec.flatten()),
-                kurtosis(spec.flatten()),
-                np.sum(spec**2),              # energy
-                np.argmax(np.mean(spec, axis=1)),  # dominant freq index
-            ])
-        feature_list.append(feats)
-    return np.array(feature_list)
+    feats = []
+    for sig in signals:
+        rms = np.sqrt(np.mean(sig**2))
+        rms_hp = np.sqrt(np.mean(highpass_filter(sig, fs)**2))
+        peak = np.max(np.abs(sig))
+        crest = peak / rms if rms != 0 else 0
+        zc = np.sum(np.diff(np.sign(sig)) != 0) / len(sig)
+        k = kurtosis(sig)
+        # Add operational frequency
+        f_op = rpm / 60.0
+        feats.extend([rms, rms_hp, crest, zc, k, f_op])
+    return np.array(feats, dtype=np.float32)
 
 
-def build_dataset_from_csv(
-    folder_path,
-    metadata_file,
-    save_dir="outputs/dataset",
-    nperseg=256,
-    noverlap=128,
-    use_db_scale=True
-):
-    """
-    Build dataset from CSV files, extract spectrograms and features, 
-    and combine them for autoencoders and ML models.
-    """
-
+# -------------------------
+# Main Dataset Builder
+# -------------------------
+def build_feature_dataset_from_csv(folder_path, metadata_file, save_dir="outputs/feature_dataset"):
     os.makedirs(save_dir, exist_ok=True)
 
-    # Load metadata
-    df_meta_data = pd.read_csv(metadata_file)
-
-    # Column mapping
+    df_meta = pd.read_csv(metadata_file)
     map_columns = {
         'X-Axis': 'time',
         'Ch1 Y-Axis': 'axisX',
@@ -94,7 +46,7 @@ def build_dataset_from_csv(
         'Ch3 Y-Axis': 'axisZ'
     }
 
-    all_data = []
+    all_rows = []
     csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
 
     for file_path in csv_files:
@@ -103,80 +55,76 @@ def build_dataset_from_csv(
         df["sample_id"] = file_name
         df = df.rename(columns=map_columns)
 
-        # Apply orientation mapping from metadata
-        mask = df_meta_data["sample_id"] == file_name
-        orientation_mapping = eval(df_meta_data.loc[mask, "orientation"].values[0])
+        mask = df_meta["sample_id"] == file_name
+        orientation_mapping = eval(df_meta.loc[mask, "orientation"].values[0])
         df = df.rename(columns=orientation_mapping)
 
-        # Fill other metadata columns
+        # Fill metadata
         for col in ["load [kw]", "rpm", "sensor_id", "condition"]:
-            df[col] = df_meta_data.loc[mask, col].values[0]
+            df[col] = df_meta.loc[mask, col].values[0]
 
-        all_data.append(df)
-
-
-    # Combine all files
-    final_df = pd.concat(all_data)
-    print("Finished processing files.")
-
-    # --- Compute STFT spectrograms ---
-    X_data_list = []
-    y_data_list = []
-
-    window = get_window("hann", nperseg)
-
-    for sample_id, group in final_df.groupby("sample_id"):
-        group = group.sort_values("time")
-        dt = group["time"].diff().dropna()
+        # Compute sampling freq
+        df = df.sort_values("time")
+        dt = df["time"].diff().dropna()
         fs = 1.0 / np.median(dt)
+        rpm = df["rpm"].iloc[0]
+        condition = df["condition"].iloc[0]
 
         signals = [
-            group["horizontal"].values,
-            group["axial"].values,
-            group["vertical"].values
+            df["horizontal"].values,
+            df["axial"].values,
+            df["vertical"].values
         ]
-        condition = group["condition"].iloc[0]
 
-        spectrograms = []
-        for sig in signals:
-            f, t, Zxx = stft(sig, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap)
-            mag = np.abs(Zxx)
-            if use_db_scale:
-                mag = 20*np.log10(mag + 1e-10)
-            spectrograms.append(mag)
+        features = extract_features_from_signals(signals, fs, rpm)
+        all_rows.append(np.concatenate([[0 if condition=="healthy" else 1], features]))  # label first
 
-        spectrograms = np.stack(spectrograms, axis=-1)  # (freq, time, 3)
-        X_data_list.append(spectrograms)
-        y_data_list.append(0 if condition == "healthy" else 1)
+        # -------------------------
+        # Plot signals for this sample
+        # -------------------------
+        # -------------------------
+        # Plot signals + FFT for this sample
+        # -------------------------
+        fig, axs = plt.subplots(3, 2, figsize=(16, 12))  # 3 signals x 2 columns (Time, FFT)
+        axes_names = ["Horizontal", "Axial", "Vertical"]
 
-    X_data_raw = np.array(X_data_list, dtype=np.float32)  # raw spectrograms
-    y_data = np.array(y_data_list, dtype=np.int32)
+        for i, sig in enumerate(signals):
+            # Time-domain plot
+            axs[i, 0].plot(df["time"], sig)
+            axs[i, 0].set_title(f"{file_name} - {condition} - {axes_names[i]} (Time)")
+            axs[i, 0].set_xlabel("Time [s]")
+            axs[i, 0].set_ylabel("Amplitude")
 
-    print("Raw dataset shape:", X_data_raw.shape)
+            # FFT plot
+            n = len(sig)
+            dt = df["time"].diff().dropna().median()
+            fs = 1.0 / dt
+            freqs = np.fft.rfftfreq(n, d=dt)
+            fft_vals = np.fft.rfft(sig)
+            amp = np.abs(fft_vals) / n  # amplitude
 
-    # --- Extract statistical features ---
-    X_features = extract_features(X_data_raw)
-    print("Feature shape:", X_features.shape)
+            axs[i, 1].plot(freqs, amp)
+            axs[i, 1].set_title(f"{file_name} - {condition} - {axes_names[i]} (FFT)")
+            axs[i, 1].set_xlabel("Frequency [Hz]")
+            axs[i, 1].set_ylabel("Amplitude")
 
-    # --- Flatten spectrograms along freq axis and combine with features ---
-    n_samples, freq, time, channels = X_data_raw.shape
-    X_flat = X_data_raw.reshape(n_samples, time, -1)  # shape (n_samples, time, freq*channels)
+            # Highlight operational frequency
+            f_op = df["rpm"].iloc[0] / 60.0
+            axs[i, 1].axvline(f_op, color="red", linestyle="--", label="Operating freq")
+            axs[i, 1].legend()
 
-    # Expand features along time dimension
-    n_feats = X_features.shape[1]
-    X_features_expanded = np.repeat(X_features[:, np.newaxis, :], time, axis=1)
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_dir, f"{file_name}_signals_fft.png"), dpi=300)
+        plt.close(fig)
 
-    # Combine spectrogram + features as last axis (channels)
-    X_combined = np.concatenate([X_flat, X_features_expanded], axis=2)  # (n_samples, time, freq*channels + n_feats)
-    print("Combined shape for autoencoders:", X_combined.shape)
+    # Final dataset
+    all_rows = np.array(all_rows, dtype=np.float32)
+    X = all_rows[:, 1:]  # features
+    y = all_rows[:, 0].astype(int)
 
-    # --- Also prepare flat array for classical ML ---
-    X_flat_ML = np.concatenate([X_data_raw.reshape(n_samples, -1), X_features], axis=1)
-    print("Combined shape for classical ML:", X_flat_ML.shape)
+    # Save dataset
+    save_path = os.path.join(save_dir, "X_y_features.npz")
+    np.savez_compressed(save_path, X=X, y=y)
+    print(f"Feature dataset saved: {save_path}, X shape: {X.shape}, y shape: {y.shape}")
 
-    # Save combined dataset
-    save_path = os.path.join(save_dir, "X_y_dataset.npz")
-    np.savez_compressed(save_path, X_combined=X_combined, X_ML=X_flat_ML, y=y_data)
-    print(f"Dataset saved: {save_path}")
-
-    return X_combined, X_flat_ML, y_data
+    return X, y
