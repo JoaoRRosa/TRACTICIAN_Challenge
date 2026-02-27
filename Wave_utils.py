@@ -3,7 +3,9 @@ from typing import List,Dict,Tuple
 import numpy as np
 import pandas as pd
 from scipy.signal import butter, sosfiltfilt
-from scipy.stats import kurtosis
+from scipy.signal import stft, get_window
+from scipy.stats import skew, kurtosis
+
 
 class Region(BaseModel): 
     start_hz: float = Field(ge = 0, description="Start frequency in Hz") 
@@ -35,8 +37,8 @@ class Wave(BaseModel):
             raise ValueError("Signal array contains NaN or infinite values")
 
         # Checks if time is strictly growing
-        if np.any(np.diff(time_arr) <= 0):
-            raise ValueError("Time values must be strictly increasing")
+        #if np.any(np.diff(time_arr) <= 0):
+            #raise ValueError("Time values must be strictly increasing")
 
         return self
 
@@ -122,4 +124,75 @@ class Wave_filter:
 
         return wave.model_copy(update={"signal": filtered})
 
+def extract_features_from_signals(waves:List[Wave], rpm, cutoff=250):
+    """
+    Extract features from a list of 1D signals [horizontal, axial, vertical]
+    """
+    feats = []
+    filter = Wave_filter
 
+    for wave in waves:
+        signal = np.array(wave.signal)
+        rms = np.sqrt(np.mean(signal**2))
+        rms_hp = np.sqrt(np.mean(filter.apply_highpass_filter(signal, wave.wave_frequency,cutoff=cutoff)**2))
+        peak = np.max(np.abs(signal))
+        crest = peak / rms if rms != 0 else 0
+        zc = np.sum(np.diff(np.sign(signal)) != 0) / len(signal)
+        k = kurtosis(signal)
+        # Add operational frequency
+        f_op = rpm / 60.0
+        feats.extend([rms, rms_hp, crest, zc, k, f_op])
+    return np.array(feats, dtype=np.float32)
+
+def compute_spectrograms(waves: list[Wave], fs=1.0, window='hann', nperseg=256, noverlap=None, use_db_scale=True):
+    """
+    Compute STFT spectrograms for a batch of signals.
+    
+    Parameters
+    ----------
+    signals : list or np.ndarray
+        List or array of 1D signals (each signal = 1D array).
+    fs : float
+        Sampling frequency of the signals.
+    window : str or tuple or array_like
+        Desired window to use for STFT.
+    nperseg : int
+        Length of each segment for STFT.
+    noverlap : int or None
+        Number of points to overlap between segments. If None, defaults to nperseg//2.
+    use_db_scale : bool
+        If True, convert magnitude to decibel (dB) scale.
+    
+    Returns
+    -------
+    spectrograms : list of np.ndarray
+        List of spectrogram magnitude arrays (frequency x time) for each signal.
+    freqs : np.ndarray
+        Array of sample frequencies.
+    times : np.ndarray
+        Array of segment times.
+    """
+    if noverlap is None:
+        noverlap = nperseg // 2
+
+    spectrograms = []
+    freqs, times = None, None
+
+    for wave in waves:
+        fs = estimate_sampling_frequency(wave)
+        f, t, Zxx = stft(wave.signal, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap)
+        mag = np.abs(Zxx)
+        if use_db_scale:
+            mag = 20 * np.log10(mag + 1e-10)  # add small epsilon to avoid log(0)
+        spectrograms.append(mag)
+
+        # Store frequency and time arrays from first signal
+        if freqs is None:
+            freqs, times = f, t
+
+    return spectrograms, freqs, times
+
+def estimate_sampling_frequency(wave: Wave):
+    dt = np.diff(wave.time)
+    median_dt = np.median(dt)
+    return 1.0 / median_dt
