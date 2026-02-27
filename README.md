@@ -31,37 +31,43 @@ At which a unsupervised machine-learning techinique called Density-Based Spatial
 
 
 
-## Part 2. Bolt loseness detection
+The code available in the train_part2 folder was used to generate the dataset and train the different models using the hyperparameters defined in Part2_config.yaml.
 
-The second problem involved the detection of losenes in bolts holding a motor to its base. Looseness is a common fault condition that can lead to excessive vibration. Structural looseness typically involves loose bolts in non-rotating components. It is important to address this issue promptly to prevent the development of additional failures caused by the resulting vibrations. 
+train_part2/
+│-- main.py
+│-- utils.py
+│-- pipeline.py
+│-- models.py
+Feature Extraction
 
--Here it was proposed a pipeline for diferent ML model selections:
-The code available in part_2_train folder was used to generate data and train the different models using the parameters avalible from part_2 config.yaml
+Feature extraction was based on widely used vibration metrics:
 
-```text
-│-- train_part2/
-│   │-- main.py
-│   │-- utils.py
-│   │-- pipeline.py
-│   │-- models.py
+Root Mean Square (RMS)
 
--And feature extraction based on the following highly used vibration metrics were used: 
-- Root Mean Squared (RMS)
-- High pass RMS
-- Peak amplitude
-- Crest value
-- Zero Crossing Rate
-- Kurtosis
+High-pass RMS
 
--This metrics were used both for acceleration and velocity signals. It was observed that although trends are not easily sppoted for acceleration signals the introduction of velocity is of great help in loseness condition monitoring.
+Peak amplitude
 
----
+Crest factor
 
-## 3. Project Structure
+Zero Crossing Rate
 
-The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the Unsupervised_Carpet_predictor.py file and in the case of the second part it is the LosenessDetection.py file.Each file has its specific Part_N_config.yaml that holds hyperparameters and folders location holder to run the file.
+Kurtosis
 
-```text
+These metrics were computed for both acceleration and velocity signals.
+
+Although trends are not always easily observed in acceleration signals alone, the inclusion of velocity-based features significantly improves looseness condition monitoring.
+
+##3. Project Structure
+
+The project is organized so that each part of the challenge has a main file containing the proposed solution:
+
+Part 1 → Unsupervised_Carpet_Predictor.py
+
+Part 2 → Loseness_Detection.py
+
+Each part also has its own configuration file (Part1_config.yaml and Part2_config.yaml) containing hyperparameters and folder paths required to run the corresponding script.
+
 project/
 │-- data/
 │   │-- part_1/
@@ -81,13 +87,12 @@ project/
 │-- Part2_config.yaml
 │-- README.md
 │-- requirements.txt
+Installation
 
+Before running the scripts, install the required dependencies listed in requirements.txt:
 
+pip install -r requirements.txt
 
+If you want, I can also:
 
-
-In order to run those files it is first necessary to install the requirements availble in requirements.txt.
-
-'''text
-
- pip install -r requirements.txt
+Improve the technical tone (make it more academic/formal)
