@@ -38,6 +38,7 @@ The second problem involved the detection of losenes in bolts holding a motor to
 -Here it was proposed a pipeline for diferent ML model selections:
 The code available in part_2_train folder was used to generate data and train the different models using the parameters avalible from part_2 config.yaml
 
+```text
 │-- train_part2/
 │   │-- main.py
 │   │-- utils.py
@@ -81,6 +82,12 @@ project/
 │-- README.md
 │-- requirements.txt
 
+
+
+
+
 In order to run those files it is first necessary to install the requirements availble in requirements.txt.
 
-''' pip install requirements.txt
+'''text
+
+ pip install -r requirements.txt

@@ -158,7 +158,7 @@ def extract_features_from_signals(waves:List[Wave], cutoff=250):
         vel_r2 = r_value**2  # confidence in linear trend
 
         feats.extend([
-            rms, rms_hp, crest, zc, k, f_op,
+            rms, rms_hp, crest, zc, k, #f_op,
             vel_rms, vel_ptp, vel_slope, vel_r2
         ])
 
