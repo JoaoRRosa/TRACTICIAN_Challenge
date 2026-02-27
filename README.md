@@ -14,20 +14,24 @@ This anomalous condition manifests in the vibration spectrum by generating rando
 
 ![Carpet Example Figure](assets/Carpet_example.png)
 
-Figure 1. Example of a carpet region. (from TRACTIAN)
+Figure 1. Example of a carpet region. (obtained from TRACTIAN)
 
 In order to solve detect carpet noises in the unlabelled data provided, this project proposed the human in the loop pipeline approach described bellow.
 
 At which a unsupervised machine-learning techinique called Density-Based Spatial Clustering of Applications with Noise (DBSCAN) is used to find high amplitude frequency bands located near each other that could be considered carpet noise regions.These initial regions are filtered using a relative energy based filter, which compares the root mean squared (RMS) of the frequency band selected with the overall signal RMS. If the RMS surpass a high percentage threshold previously defined, the final selected regions are classified as carpet regions.
 
 -This unsupervised pipeline then generates:
-- plots of each wave's carpet region selection process;
+- plots of each wave's carpet region selection process (Figure 2 bellow);
 
 - a csv file with features calculated from all regions from a wave signal, wheter they are considered carpet regions or not;
 
 - a plot of these features for all regions, highlighting the regions chosen
 
 -In posession of this files an analyst can further refine the selected regions to train a supervised model approach.
+
+![Unsupervised model solution](outputs\part_1\plots\6dbf3276-3d5a-5c9f-930e-09da6ec60243_pipeline.png)
+
+Figure 2. Pipeline solution based on the DBSCAN+ spectral RMS filter
 
 ## Part 2. Bolt loseness detection
 
@@ -51,8 +55,20 @@ The code available in train_part2 folder was used to generate data and train the
 - Crest value
 - Zero Crossing Rate
 - Kurtosis
+- Velocity RMS
+- Velocity peak to peak
+- Velocity signal slope (based on a linear regression)
 
 -This metrics were used both for acceleration and velocity signals. It was observed that although trends are not easily sppoted for acceleration signals the introduction of velocity signal is of great help in loseness condition monitoring, where trends are easily seen.
+Figures 3 and 4 are some outputs of the model for diferent conditions. As seen figure 3 posesses a thicker signal which translates in a positive trend in the axial velocity.
+
+![Motor with lose bolts](outputs\Part_2\test\waves\1dab1534-b8a8-5962-b01c-bff0782d54a9_signals_velocity_acc_fft.png)
+
+Figure 3. Output of the Loseness Model for a motor with bolts lose.
+
+![Motor fixed](outputs\Part_2\test\waves\01e98ad9-23c9-5986-ace0-4519bad71198_signals_velocity_acc_fft.png)
+
+Figure 3. Output of the Loseness Model for a motor fixed.
 
 ---
 
