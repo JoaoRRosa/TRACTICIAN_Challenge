@@ -40,5 +40,5 @@ predictor:
   model_path: "train_part2/outputs/part_2/LogisticRegression.pkl"
   type: "sklearn"          # or "keras"
   threshold: 0.5
-  Xy_folder: "train_part2/outputs/part_2/preprocessed_data/X_y_features.npz"
+  Xy_folder: "train_part2/outputs/part_2/X_y_features.npz"
 

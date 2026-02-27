@@ -29,7 +29,7 @@ At which a unsupervised machine-learning techinique called Density-Based Spatial
 
 -In posession of this files an analyst can further refine the selected regions to train a supervised model approach.
 
-![Unsupervised model solution](outputs\part_1\plots\6dbf3276-3d5a-5c9f-930e-09da6ec60243_pipeline.png)
+![Unsupervised model solution](outputs/part_1/plots/6dbf3276-3d5a-5c9f-930e-09da6ec60243_pipeline.png)
 
 Figure 2. Pipeline solution based on the DBSCAN+ spectral RMS filter
 
@@ -62,11 +62,11 @@ The code available in train_part2 folder was used to generate data and train the
 -This metrics were used both for acceleration and velocity signals. It was observed that although trends are not easily sppoted for acceleration signals the introduction of velocity signal is of great help in loseness condition monitoring, where trends are easily seen.
 Figures 3 and 4 are some outputs of the model for diferent conditions. As seen figure 3 posesses a thicker signal which translates in a positive trend in the axial velocity.
 
-![Motor with lose bolts](outputs\Part_2\test\waves\1dab1534-b8a8-5962-b01c-bff0782d54a9_signals_velocity_acc_fft.png)
+![Motor with lose bolts](outputs/Part_2/test/waves/1dab1534-b8a8-5962-b01c-bff0782d54a9_signals_velocity_acc_fft.png)
 
 Figure 3. Output of the Loseness Model for a motor with bolts lose.
 
-![Motor fixed](outputs\Part_2\test\waves\01e98ad9-23c9-5986-ace0-4519bad71198_signals_velocity_acc_fft.png)
+![Motor fixed](outputs/Part_2/test/waves/01e98ad9-23c9-5986-ace0-4519bad71198_signals_velocity_acc_fft.png)
 
 Figure 3. Output of the Loseness Model for a motor fixed.
 
@@ -74,7 +74,7 @@ Figure 3. Output of the Loseness Model for a motor fixed.
 
 ## Project Structure
 
-The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the ```Unsupervised_Carpet_predictor.py``` file and in the case of the second part it is the ```LosenessDetection.py``` file.Each file has its specific Part_N_config.yaml that holds hyperparameters and folders locations required to run the file.
+The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the ```Unsupervised_Carpet_predictor.py``` file and in the case of the second part it is the ```LosenessDetection.py``` file.Each file has its specific ```Part_N_config.yaml``` that holds hyperparameters and folders locations required to run the file and uses ```Wave.utils.py``` to represent the data as Waves adn CarpetRegions in the case of Part1.
 
 ```text
 project/
