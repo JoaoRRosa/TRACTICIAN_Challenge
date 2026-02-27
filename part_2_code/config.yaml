@@ -31,4 +31,5 @@ dataset:
   extra_features:
     rms: true
     spectral_centroid: true
+  val_split: 0.2
 

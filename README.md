@@ -18,7 +18,7 @@ Figure 1. Example of a carpet region. (from TRACTIAN)
 
 In order to solve detect carpet noises in the unlabelled data provided, this project proposed the human in the loop pipeline approach described bellow.
 
-- At which a unsupervised machine-learning techinique called Density-Based Spatial Clustering of Applications with Noise (DBSCAN) is used to find initial frequency bands that could be considered carpet noise regions.These initial regions are filtered using a relative energy based filter, which compares the root mean squared (RMS) of the frequency band selected with the overall signal RMS, and sing a high-pass filter with a cutoff of 1kHz. The final selected regions are carpet regions selected by the unsupervised model.
+At which a unsupervised machine-learning techinique called Density-Based Spatial Clustering of Applications with Noise (DBSCAN) is used to find initial frequency bands that could be considered carpet noise regions.These initial regions are filtered using a relative energy based filter, which compares the root mean squared (RMS) of the frequency band selected with the overall signal RMS, and sing a high-pass filter with a cutoff of 1kHz. The final selected regions are carpet regions selected by the unsupervised model.
 
 -This unsupervised model generates:
 - plots of each wave's carpet region selection process pipeline;

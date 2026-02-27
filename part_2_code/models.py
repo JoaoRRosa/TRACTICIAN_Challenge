@@ -111,3 +111,49 @@ def build_2d_cnn_autoencoder(input_shape, filters=[32,16], latent_dim=128, optim
     model = models.Model(inp, decoded)
     model.compile(optimizer=optimizer, loss='mse')
     return model
+
+import numpy as np
+
+def determine_ae_threshold_max_division(errors_train, y_train, num_thresholds=1000):
+    """
+    Determine the best threshold for an autoencoder by maximizing separation
+    between healthy and faulty residuals in training data.
+    
+    Parameters
+    ----------
+    errors_train : np.ndarray
+        Reconstruction errors for training set.
+    y_train : np.ndarray
+        Labels for training set (0 = healthy, 1 = faulty)
+    num_thresholds : int
+        Number of thresholds to try between min and max error.
+
+    Returns
+    -------
+    best_threshold : float
+        Threshold that maximizes TPR - FPR on training data.
+    """
+    # Range of candidate thresholds
+    min_err, max_err = errors_train.min(), errors_train.max()
+    thresholds = np.linspace(min_err, max_err, num_thresholds)
+    
+    best_score = -np.inf
+    best_threshold = thresholds[0]
+
+    for t in thresholds:
+        # Predicted anomalies above threshold
+        preds = errors_train > t
+
+        # True Positive Rate: faulty samples correctly above threshold
+        TPR = np.sum((preds == 1) & (y_train == 1)) / max(np.sum(y_train == 1), 1)
+
+        # False Positive Rate: healthy samples incorrectly above threshold
+        FPR = np.sum((preds == 1) & (y_train == 0)) / max(np.sum(y_train == 0), 1)
+
+        score = TPR - FPR  # maximal separation
+
+        if score > best_score:
+            best_score = score
+            best_threshold = t
+
+    return best_threshold
