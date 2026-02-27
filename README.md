@@ -29,50 +29,44 @@ At which a unsupervised machine-learning techinique called Density-Based Spatial
 
 -In posession of this files an analyst can further refine the selected regions to train a supervised model approach.
 
+## Part 2. Bolt loseness detection
 
+The second problem involved the detection of losenes in bolts holding a motor to its base. Looseness is a common fault condition that can lead to excessive vibration. Structural looseness typically involves loose bolts in non-rotating components. It is important to address this issue promptly to prevent the development of additional failures caused by the resulting vibrations. 
 
-The code available in the train_part2 folder was used to generate the dataset and train the different models using the hyperparameters defined in Part2_config.yaml.
+-Here it was proposed a pipeline for diferent ML models selection:
+The code available in part_2_train folder was used to generate data and train the different models using the parameters avalible from Part_2 config.yaml. The models were compared in a validation dataset using a predefined split (available together with other hyperparameters on the Part2_config.yaml file)
 
-train_part2/
-│-- main.py
-│-- utils.py
-│-- pipeline.py
-│-- models.py
-Feature Extraction
+```text
+│-- train_part2/
+│   │-- main.py
+│   │-- utils.py
+│   │-- pipeline.py
+│   │-- models.py
+'''
 
-Feature extraction was based on widely used vibration metrics:
+-And feature extraction based on the following highly used vibration metrics were used: 
+- Root Mean Squared (RMS)
+- High pass RMS
+- Peak amplitude
+- Crest value
+- Zero Crossing Rate
+- Kurtosis
 
-Root Mean Square (RMS)
+-This metrics were used both for acceleration and velocity signals. It was observed that although trends are not easily sppoted for acceleration signals the introduction of velocity signal is of great help in loseness condition monitoring, where trends are easily seen.
 
-High-pass RMS
+---
 
-Peak amplitude
+## 3. Project Structure
 
-Crest factor
+The project is structured is shown bellow.It is structured in a way that each part of the challenge has one main file that holds the proposed solution. In the case of the first part, this is the Unsupervised_Carpet_predictor.py file and in the case of the second part it is the LosenessDetection.py file.Each file has its specific Part_N_config.yaml that holds hyperparameters and folders locations required to run the file.
 
-Zero Crossing Rate
-
-Kurtosis
-
-These metrics were computed for both acceleration and velocity signals.
-
-Although trends are not always easily observed in acceleration signals alone, the inclusion of velocity-based features significantly improves looseness condition monitoring.
-
-##3. Project Structure
-
-The project is organized so that each part of the challenge has a main file containing the proposed solution:
-
-Part 1 → Unsupervised_Carpet_Predictor.py
-
-Part 2 → Loseness_Detection.py
-
-Each part also has its own configuration file (Part1_config.yaml and Part2_config.yaml) containing hyperparameters and folder paths required to run the corresponding script.
-
+```text
 project/
 │-- data/
 │   │-- part_1/
 │   │-- part_2/
-│-- figures/
+│-- outputs/
+│   │-- part_1/
 │-- train_part2/
 │   │-- main.py
 │   │-- utils.py
@@ -87,12 +81,37 @@ project/
 │-- Part2_config.yaml
 │-- README.md
 │-- requirements.txt
-Installation
+│-- Wave_utils.py
+````
 
-Before running the scripts, install the required dependencies listed in requirements.txt:
 
-pip install -r requirements.txt
+In order to run those files it is first necessary to install the dependencies availble in requirements.txt.
 
-If you want, I can also:
+```text
 
-Improve the technical tone (make it more academic/formal)
+ pip install -r requirements.txt
+
+```
+
+ Having installed the dependencies each config.yaml file can be modified in order to select the folder with the data. In order to run Part 2 a folder with the trained model and Standart Scaler should also be selected.
+
+ After changing the Part1_config.yaml file the Unsupervised_Carpet_predictor.py is ready to be run using
+
+```text
+ python Unsupervised_Carpet_predictor.py
+```
+
+ The code will read each csv file containg a Wave and will return a list of CarpetRegions, printing in the screen the Wave with most severe carpet noises (based on the sum of the energies of the carpets). Even more, the model will oputput in the desired output folder the decision pipeline process for further checking, the features per regions grouped by te DBSCAN in a csv file and a plot of these features. The outputs of the proposed method are available at 
+ 
+```text
+│-- outputs/
+│   │-- part_1/
+```
+
+ Similarly for the Part2_config.yaml and the LosenessDetection.py:
+
+```text
+ python LosenessDetection.py
+```
+
+ The Loseness detection will be based on the supervised pretained models from folder Part2_train. The chosen moedl will use aceleration and velocity features described above to dertermine wheter the bolts are lose or not.
