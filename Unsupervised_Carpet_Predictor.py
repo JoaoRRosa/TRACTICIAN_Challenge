@@ -325,6 +325,14 @@ class Model:
 
 if __name__ == "__main__":
 
+    
+
+    # Load YAML from file
+    with open("Part1_config.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    params = config['model']['params']
+
     INPUT_FOLDER = 'part_1'
     OUTPUT_FOLDER = 'outputs/pydantic_model'
     FEATURES_FOLDER = 'outputs/pydantic_model/features'
@@ -332,12 +340,7 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_FOLDER,exist_ok=True)
     os.makedirs(FEATURES_FOLDER,exist_ok=True)
     csv_files = glob.glob(os.path.join(INPUT_FOLDER, "*.csv"))
-
-    # Load YAML from file
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
-
-    params = config['model']['params']    
+        
     model = Model(**params)
 
     samples_severity = {}

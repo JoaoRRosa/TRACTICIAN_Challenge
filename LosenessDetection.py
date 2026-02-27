@@ -101,7 +101,9 @@ class LoosenessModel:
         X = extract_features_from_signals([wave_hor, wave_axi, wave_ver])
         # Ensure X is 2D: (1, n_features)
         X = X.reshape(1, -1)
+        #print("X_test min/max:", X.min(), X.max())
         X_scaled = self.scaler.transform(X)
+        #print("X_test min/max:", X_scaled.min(), X_scaled.max())
         score = self.model.predict_proba(X_scaled)[0][1]  # probability of class 1
         return float(score)
 
@@ -113,7 +115,7 @@ class LoosenessModel:
         return bool(score > threshold)
 
 
-def load_config(config_path="config.yaml"):
+def load_config(config_path="Part2_config.yaml"):
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
 
@@ -121,7 +123,7 @@ def load_config(config_path="config.yaml"):
 if __name__ == "__main__":
 
     # Load configuration
-    config = load_config("part_2_code/config.yaml")
+    config = load_config("part_2_code/Part2_config.yaml")
 
     # Initialize model
     model = LoosenessModel(**config)

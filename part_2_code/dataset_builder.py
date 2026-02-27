@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import skew, kurtosis
 from scipy.signal import butter, filtfilt
+
 # -------------------------
 # Signal Feature Extraction
 # -------------------------
@@ -64,7 +65,7 @@ def extract_features_from_signals(signals, fs, rpm, time=None):
         crest = peak / rms if rms != 0 else 0
         zc = np.sum(np.diff(np.sign(sig)) != 0) / len(sig)
         k = kurtosis(sig)
-        f_op = rpm / 60.0  # Hz
+        #f_op = rpm / 60.0  # Hz
         
         # Velocity signal
         vel = np.gradient(sig, time)  # numerical derivative
@@ -76,7 +77,7 @@ def extract_features_from_signals(signals, fs, rpm, time=None):
         vel_r2 = r_value**2  # confidence in linear trend
 
         feats.extend([
-            rms, rms_hp, crest, zc, k, f_op,
+            rms, rms_hp, crest, zc, k,
             vel_rms, vel_ptp, vel_slope, vel_r2
         ])
     
@@ -172,6 +173,8 @@ def build_feature_dataset_from_csv(folder_path, metadata_file, save_dir="outputs
     # Final dataset
     all_rows = np.array(all_rows, dtype=np.float32)
     X = all_rows[:, 1:]  # features
+    print("X_train min/max:", X.min(), X.max())
+    
     y = all_rows[:, 0].astype(int)
 
     # Save dataset

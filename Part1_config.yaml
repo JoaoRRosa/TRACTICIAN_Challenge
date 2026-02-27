@@ -1,0 +1,14 @@
+model:
+  type: DBSCAN
+  params:
+    percentile_amplitudes_threshold: 75
+    dbscan_eps: 100
+    dbscan_min_samples: 50
+    percentage_overall_RMS: 85
+
+dataset:
+  folder_path: 'part_1'
+
+outputs:
+  folder: "outputs/part_1" 
+  features_folder: "outputs/pydantic_model/features"
