@@ -68,7 +68,7 @@ Figure 3. Output of the Loseness Model for a motor with bolts lose.
 
 ![Motor fixed](outputs/Part_2/test/waves/01e98ad9-23c9-5986-ace0-4519bad71198_signals_velocity_acc_fft.png)
 
-Figure 3. Output of the Loseness Model for a motor fixed.
+Figure 4. Output of the Loseness Model for a motor fixed.
 
 ---
 
