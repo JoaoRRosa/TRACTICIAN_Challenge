@@ -280,7 +280,7 @@ def estimate_operational_frequency_from_signals(waves : List[Wave], min_freq=1.0
     f_op = np.mean(dominant_freqs)
     return f_op
 
-def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir, fs):
+def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir):
     """
     Plots velocity, acceleration, and FFT for each wave axis.
 
@@ -308,13 +308,14 @@ def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir, fs):
         # -----------------------
         # Compute velocity
         # -----------------------
+        fs = wave.wave_frequency
         vel = acceleration_to_velocity(wave.signal, fs)
 
         # -----------------------
         # Velocity (time-domain)
         # -----------------------
         axs[i, 0].plot(wave.time, vel, color="green")
-        axs[i, 0].set_title(f"{file_name} - {condition} - {axes_names[i]} (Velocity)")
+        axs[i, 0].set_title(f"{axes_names[i]} (Velocity)")
         axs[i, 0].set_xlabel("Time [s]")
         axs[i, 0].set_ylabel("Velocity")
 
@@ -322,7 +323,7 @@ def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir, fs):
         # Acceleration (time-domain)
         # -----------------------
         axs[i, 1].plot(wave.time, wave.signal, color="blue")
-        axs[i, 1].set_title(f"{file_name} - {condition} - {axes_names[i]} (Acceleration)")
+        axs[i, 1].set_title(f"{axes_names[i]} (Acceleration)")
         axs[i, 1].set_xlabel("Time [s]")
         axs[i, 1].set_ylabel("Amplitude")
 
@@ -335,13 +336,15 @@ def plot_waves(waves: List[Wave], fo, condition, file_name, save_dir, fs):
         amp = np.abs(fft_vals) / n
 
         axs[i, 2].plot(freqs, amp)
-        axs[i, 2].set_title(f"{file_name} - {condition} - {axes_names[i]} (FFT)")
+        axs[i, 2].set_title(f"{axes_names[i]} (FFT)")
         axs[i, 2].set_xlabel("Frequency [Hz]")
         axs[i, 2].set_ylabel("Amplitude")
 
         # Highlight operational frequency
         axs[i, 2].axvline(fo, color="red", linestyle="--", label="Operating freq")
         axs[i, 2].legend()
+
+    fig.suptitle(f"{file_name} - {condition} - Operational Frequency: {fo:.2f} Hz", fontsize=16)
 
     plt.tight_layout()
     os.makedirs(save_dir, exist_ok=True)

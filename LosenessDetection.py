@@ -13,7 +13,7 @@ def plot_features_with_test_predictions(
     X_train_features, y_train,
     X_test_features, y_test_pred,
     feature_names=None,
-    save_dir="outputs/feature_analysis",
+    save_dir="outputs/part_2/feature_analysis",
     title="Feature comparison train vs predicted test"
 ):
     """
@@ -146,7 +146,7 @@ def load_config(config_path="Part2_config.yaml"):
 if __name__ == "__main__":
 
     # Load configuration
-    config = load_config("part_2_code/Part2_config.yaml")
+    config = load_config("train_part2/Part2_config.yaml")
 
     # Initialize model
     model = LoosenessModel(**config)
@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
         fo = group["rpm"].iloc[0]
         condition = 'Loseness' if prediction else 'Healthy'
-        plot_waves([wave_hor,wave_axi,wave_ver],fo,condition,sample_id,'test/waves')
+        plot_waves([wave_hor,wave_axi,wave_ver],fo,condition,sample_id,'outputs/part_2/test/waves')
 
     data = np.load(config['predictor']['Xy_folder'],allow_pickle=True)
 
